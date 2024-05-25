@@ -4,6 +4,10 @@ KDIR := /lib/modules/${KVERSION}/build
 default:
 	$(MAKE) -C $(KDIR) M=$$PWD
 
+debug:
+	$(MAKE) -C $(KDIR) M=$$PWD EXTRA_CFLAGS="-g -DDEBUG"
+
+
 install: default
 	$(MAKE) -C $(KDIR) M=$$PWD modules_install
 	depmod -A
