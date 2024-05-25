@@ -499,6 +499,9 @@ static void pidff_playback_pid(struct pidff_device *pidff, int pid_id, int n)
 	} else {
 		pidff->effect_operation_status->value[0] =
 			pidff->operation_id[PID_EFFECT_START];
+		
+		n = clamp(n, pidff->effect_operation[PID_LOOP_COUNT].field->logical_minimum, 
+                                pidff->effect_operation[PID_LOOP_COUNT].field->logical_maximum);
 		pidff->effect_operation[PID_LOOP_COUNT].value[0] = n;
 	}
 
