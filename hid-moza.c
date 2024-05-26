@@ -21,6 +21,17 @@ static const struct hid_device_id moza_devices[] = {
 };
 MODULE_DEVICE_TABLE(hid, moza_devices);
 
+// Fix data type on PID Device Control
+static u8 *moza_report_fixup(struct hid_device *hdev, __u8 *rdesc,
+                                        unsigned int *rsize)
+{
+        if (rdesc[1002] == 0x91 && rdesc[1003] == 0x02) {
+			rdesc[1003] = 0x00; // Fix header, it needs to be Array.
+        }
+        return rdesc;
+}
+
+
 static int moza_probe(struct hid_device *hdev, 
 				const struct hid_device_id *id) 
 {
@@ -63,6 +74,7 @@ static struct hid_driver moza_ff = {
 	.id_table = moza_devices,
 	.probe = moza_probe,
 	.input_configured = moza_input_configured,
+	.report_fixup = moza_report_fixup
 };
 module_hid_driver(moza_ff);
 
