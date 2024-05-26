@@ -22,11 +22,12 @@ Not tested
 ## What works?
 1. FFB (all effects from device descriptor)
 2. All inputs (wheel axis, buttons)
-3. Setup through MOZA PitHouse with [some tweaking](#how-to-set-up-a-base-parameters))
+
 
 ## What does not work?
 1. Telemetry functions (Shift lights, etc), mostly because telemetry works only with proprietary soft, which can't get access to shared memory chunks from games.
 2. `Firmware Update` function. Use Windows PC or Windows VM at the moment.
+3. Setup through MOZA PitHouse even with [some tweaking](#how-to-set-up-a-base-parameters))
 
 ## How to use that driver?
 You can install it through DKMS or manually.
@@ -53,7 +54,11 @@ To unload module:
 
 ## How to set up a base parameters?
 
-You can do it through MOZA PitHouse with Wine. You need to tweak Wine prefix for them.
+For now, please, use [Android App](https://play.google.com/store/apps/details?id=com.gudsen.mozapithouse)
+
+
+### Non working method
+You can try to setup MOZA PitHouse with Wine. You need to tweak Wine prefix for them.
 
 That soft uses hidraw to set up a base. You need to create `udev` rule for allow access to hidraw device:
 ```
