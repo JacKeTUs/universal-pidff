@@ -565,7 +565,7 @@ static int pidff_upload_effect(struct input_dev *dev, struct ff_effect *effect,
 		pidff->block_load[PID_EFFECT_BLOCK_INDEX].value[0] =
 			pidff->pid_id[effect->id];
 	}
-
+	hid_dbg(pidff->hid, "Upload effect 0x%02x,", effect->type);
 	switch (effect->type) {
 	case FF_CONSTANT:
 		if (!old) {
@@ -1154,7 +1154,9 @@ static void pidff_reset(struct pidff_device *pidff)
 	struct hid_device *hid = pidff->hid;
 	int i = 0;
 
+	hid_dbg(hid, "%s: Resetting the device...", __func__);
 	pidff->device_control->value[0] = pidff->control_id[PID_RESET];
+	hid_dbg(hid, "%s: PID_RESET control_id: %02x", __func__, pidff->device_control->value[0]);
 	/* We reset twice as sometimes hid_wait_io isn't waiting long enough */
 	hid_hw_request(hid, pidff->reports[PID_DEVICE_CONTROL], HID_REQ_SET_REPORT);
 	hid_hw_wait(hid);
@@ -1163,6 +1165,7 @@ static void pidff_reset(struct pidff_device *pidff)
 
 	pidff->device_control->value[0] =
 		pidff->control_id[PID_ENABLE_ACTUATORS];
+	hid_dbg(hid, "%s: PID_ENABLE_ACTUATORS control_id: %02x", __func__, pidff->device_control->value[0]);
 	hid_hw_request(hid, pidff->reports[PID_DEVICE_CONTROL], HID_REQ_SET_REPORT);
 	hid_hw_wait(hid);
 
@@ -1184,6 +1187,7 @@ static void pidff_reset(struct pidff_device *pidff)
 			hid_hw_wait(hid);
 		}
 	}
+	hid_dbg(hid, "%s: Resetting device complete", __func__);
 }
 
 /*
