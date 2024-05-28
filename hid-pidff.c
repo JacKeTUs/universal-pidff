@@ -3,8 +3,8 @@
  *  Force feedback driver for USB HID PID compliant devices
  *
  *  Copyright (c) 2005, 2006 Anssi Hannula <anssi.hannula@gmail.com>
- *  Copyright (c) 2024 Oleg Makarenko <oleg@makarenk.ooo>
- *  Copyright (c) 2024 Tomasz Pakuła <tomasz.pakula.oficjalny@gmail.com>
+ *  Copyright (c) 2024 Makarenko Oleg <oleg@makarenk.ooo>
+ *  Copyright (c) 2024 Tomasz Pakuła <tomasz@pakula.org>
  */
 
 /*
