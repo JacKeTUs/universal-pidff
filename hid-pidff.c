@@ -1250,7 +1250,7 @@ static int pidff_check_autocenter(struct pidff_device *pidff,
 /*
  * Check if the device is PID and initialize it
  */
-int hid_pidff_init(struct hid_device *hid)
+int hid_pidff_init(struct hid_device *hid, const struct hid_device_id *id)
 {
 	struct pidff_device *pidff;
 	struct hid_input *hidinput = list_entry(hid->inputs.next,
@@ -1272,7 +1272,7 @@ int hid_pidff_init(struct hid_device *hid)
 		return -ENOMEM;
 
 	pidff->hid = hid;
-	pidff->quirks = 0;
+	pidff->quirks |= id->device_data;
 
 	hid_device_io_start(hid);
 
@@ -1349,30 +1349,4 @@ int hid_pidff_init(struct hid_device *hid)
 
 	kfree(pidff);
 	return error;
-}
-
-/*
- * Check if the device is PID and initialize it
- * Add quirks after initialisation
- */
-int hid_pidff_init_with_quirks(struct hid_device *hid, unsigned quirks)
-{
-	int error = hid_pidff_init(hid);
-
-	if (error)
-		return error;
-
-	struct hid_input *hidinput = list_entry(hid->inputs.next,
-						struct hid_input, list);
-	struct input_dev *dev = hidinput->input;
-	struct pidff_device *pidff = dev->ff->private;
-
-	/* set quirks on the pidff device */
-	hid_device_io_start(hid);
-	pidff->quirks |= quirks;
-	hid_device_io_stop(hid);
-
-	hid_dbg(dev, "Device quirks: %d\n", pidff->quirks);
-
- 	return 0;
 }
