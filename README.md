@@ -9,15 +9,11 @@ And that's basically it
 
 ## What devices are supported?
 ### Bases:
-1. MOZA R3
-1. MOZA R5
-1. MOZA R9
-1. MOZA R12
-1. MOZA R16
-1. MOZA R21
+1. MOZA R3, R5, R9, R12, R16, R21
+1. ...
 
 ### Wheel rims (others yet untested):
-1. MOZA RS V2
+1. MOZA RS V2 (with Moza wheelbases)
 
 ## What works?
 1. FFB (all effects from device descriptor)
@@ -25,7 +21,7 @@ And that's basically it
 
 
 ## What does not work?
-1. Telemetry functions (Shift lights, etc), mostly because telemetry works only with proprietary soft, which can't get access to shared memory chunks from games.
+1. Telemetry functions (Shift lights, displays, SimHub, etc), mostly because telemetry works only with proprietary soft, which can't get access to shared memory chunks from games.
 2. `Firmware Update` function. Use Windows PC or Windows VM at the moment.
 3. Setup through MOZA PitHouse even with [some tweaking](#how-to-set-up-a-base-parameters))
 
@@ -56,34 +52,9 @@ To unload module:
 
 ## How to set up a base parameters?
 
+### MOZA
 For now, please, use [Android App](https://play.google.com/store/apps/details?id=com.gudsen.mozapithouse)
 
-
-### Non working method
-You can try to setup MOZA PitHouse with Wine. You need to tweak Wine prefix for them.
-
-That soft uses hidraw to set up a base. You need to create `udev` rule for allow access to hidraw device:
-```
-echo 'KERNEL=="hidraw*", ATTRS{idVendor}=="346e", MODE="0660", TAG+="uaccess"' | sudo tee /etc/udev/rules.d/11-moza.rules
-
-udevadm control --reload-rules && udevadm trigger
-```
-
-Then you need to force MOZA soft to use hidraw, not SDL, to find devices:
-1. Create new Wine prefix for them:
-
-      `mkdir ~/moza-wine`
-2. Launch regedit in prefix:
-
-      `WINEPREFIX=$HOME/moza-wine wine regedit`
-3. Create two keys in
-  `HKEY_LOCAL_MACHINE\System\CurrentControlSet\Services\winebus`:
-
-    * `DisableInput` (DWORD) - set to `1`;
-    * `Enable SDL` (DWORD) - set to `0`; (yes, variable name contains  space)
-4. Now you can launch soft through that WINEPREFIX:
-
-    `WINEPREFIX=$HOME/moza-wine wine MOZA\ Pit\ House.exe` - launch your PitHouse from installation directory.
 
 ## Known issues with the driver
 1. Firmware update does not work. Please use Windows machine or Windows VM for any firmware updates
