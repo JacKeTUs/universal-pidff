@@ -43,7 +43,7 @@ static u8 *new_pidff_report_fixup(struct hid_device *hdev, __u8 *rdesc,
                                         unsigned int *rsize)
 {
 		if (hdev->vendor == USB_VENDOR_ID_MOZA) {
-			return moza_report_fixup(hdev, rdesc, rsize)
+			return moza_report_fixup(hdev, rdesc, rsize);
 		}
 		return rdesc;
 }
