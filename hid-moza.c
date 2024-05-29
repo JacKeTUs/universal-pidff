@@ -9,6 +9,7 @@
 #include <linux/hid.h>
 #include <linux/module.h>
 #include "hid-moza.h"
+#include "hid-pidff.h"
 
 static const struct hid_device_id moza_devices[] = {
 	{ HID_USB_DEVICE(USB_VENDOR_ID_MOZA, USB_DEVICE_ID_MOZA_R3) },
@@ -32,8 +33,8 @@ static u8 *moza_report_fixup(struct hid_device *hdev, __u8 *rdesc,
 }
 
 
-static int moza_probe(struct hid_device *hdev, 
-				const struct hid_device_id *id) 
+static int moza_probe(struct hid_device *hdev,
+				const struct hid_device_id *id)
 {
 	int ret;
 	ret = hid_parse(hdev);
@@ -48,7 +49,12 @@ static int moza_probe(struct hid_device *hdev,
 		goto err;
 	}
 
-	ret = hid_pidff_init_moza(hdev);
+	/* set PIDFF quirks for moza wheelbases */
+	unsigned quirks = 0;
+	quirks |= PIDFF_QUIRK_FIX_0_INFINITE_LENGTH;
+	quirks |= PIDFF_QUIRK_FIX_WHEEL_DIRECTION;
+
+	ret = hid_pidff_init_with_quirks(hdev, quirks);
 	if (ret) {
 		hid_warn(hdev, "Force feedback not supported\n");
 		goto err;
@@ -60,10 +66,10 @@ err:
 }
 
 static int moza_input_configured(struct hid_device *hdev,
-				struct hid_input *hidinput) 
+				struct hid_input *hidinput)
 {
 	struct input_dev *input = hidinput->input;
-	input_set_abs_params(input, ABS_X, 
+	input_set_abs_params(input, ABS_X,
 		input->absinfo[ABS_X].minimum, input->absinfo[ABS_X].maximum, 0, 0);
 
 	return 0;

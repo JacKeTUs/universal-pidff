@@ -16,8 +16,8 @@ And that's basically it
 1. MOZA R16
 1. MOZA R21
 
-### Wheel rims:
-Not tested
+### Wheel rims (others yet untested):
+1. MOZA RS V2
 
 ## What works?
 1. FFB (all effects from device descriptor)
@@ -29,12 +29,14 @@ Not tested
 2. `Firmware Update` function. Use Windows PC or Windows VM at the moment.
 3. Setup through MOZA PitHouse even with [some tweaking](#how-to-set-up-a-base-parameters))
 
-## How to use that driver?
-You can install it through DKMS or manually.
+## How to use this driver?
+There's an [AUR packege](https://aur.archlinux.org/packages/moza-ff-dkms-git) for Arch Linux maintained by @Lawstorant
+
+Alternatively, you can install it through DKMS or manually.
 ### DKMS
 1. Install `dkms`
 2. Clone repository to `/usr/src/moza-ff`
-3. Install the module: 
+3. Install the module:
 `sudo dkms install /usr/src/moza-ff`
 4. Update initramfs:
 `sudo update-initramfs -u`
@@ -42,7 +44,7 @@ You can install it through DKMS or manually.
 
 To remove module:
 `sudo dkms remove moza-ff/<version> --all`
-### Manually 
+### Manually
 
 1. Install `linux-headers-$(uname -r)`
 2. Clone repository
@@ -86,7 +88,7 @@ Then you need to force MOZA soft to use hidraw, not SDL, to find devices:
 ## Known issues with the driver
 1. Firmware update does not work. Please use Windows machine or Windows VM for any firmware updates
 
-## Known issues with the firmware 
+## Known issues with the firmware
 You tell me please
 
 ## DISCLAIMER

@@ -3,6 +3,8 @@
  *  Force feedback driver for USB HID PID compliant devices
  *
  *  Copyright (c) 2005, 2006 Anssi Hannula <anssi.hannula@gmail.com>
+ *  Copyright (c) 2024 Makarenko Oleg <oleg@makarenk.ooo>
+ *  Copyright (c) 2024 Tomasz Pakuła <tomasz@pakula.org>
  */
 
 /*
@@ -19,6 +21,7 @@
 #include <linux/hid.h>
 
 //#include "usbhid.h"
+#include "hid-pidff.h"
 
 #define	PID_EFFECTS_MAX		64
 
@@ -184,6 +187,7 @@ struct pidff_device {
 	int operation_id[sizeof(pidff_effect_operation_status)];
 
 	int pid_id[PID_EFFECTS_MAX];
+	unsigned quirks;
 };
 
 /*
@@ -297,21 +301,35 @@ static int pidff_needs_set_constant(struct ff_effect *effect,
 static void pidff_set_effect_report(struct pidff_device *pidff,
 				    struct ff_effect *effect)
 {
+	/* check for device quirks */
+	unsigned short direction = effect->direction;
+	unsigned short length = effect->replay.length;
+
+	if (pidff->quirks & PIDFF_QUIRK_FIX_0_INFINITE_LENGTH && length == 0)
+		length = 0xffff;
+
+	if ((effect->type == FF_DAMPER ||
+	    effect->type == FF_FRICTION ||
+	    effect->type == FF_SPRING ||
+	    effect->type == FF_INERTIA) &&
+	    pidff->quirks & PIDFF_QUIRK_FIX_WHEEL_DIRECTION)
+		direction = 0x3FFF;
+
 	pidff->set_effect[PID_EFFECT_BLOCK_INDEX].value[0] =
 		pidff->block_load[PID_EFFECT_BLOCK_INDEX].value[0];
 	pidff->set_effect_type->value[0] =
 		pidff->create_new_effect_type->value[0];
-	pidff->set_effect[PID_DURATION].value[0] = 
-		effect->replay.length == 0 ? 0xffff: effect->replay.length;
-	pidff->set_effect[PID_TRIGGER_BUTTON].value[0] = effect->trigger.button;
+	pidff->set_effect[PID_DURATION].value[0] = length;
+	pidff->set_effect[PID_TRIGGER_BUTTON].value[0] =
+		effect->trigger.button;
 	pidff->set_effect[PID_TRIGGER_REPEAT_INT].value[0] =
 		effect->trigger.interval;
 	pidff->set_effect[PID_GAIN].value[0] =
 		pidff->set_effect[PID_GAIN].field->logical_maximum;
 	pidff->set_effect[PID_DIRECTION_ENABLE].value[0] = 1;
 	pidff->effect_direction->value[0] =
-		pidff_rescale(effect->direction, 0xffff,
-				pidff->effect_direction);
+		pidff_rescale(direction, 0xffff, pidff->effect_direction);
+
 	pidff->set_effect[PID_START_DELAY].value[0] = effect->replay.delay;
 
 	hid_hw_request(pidff->hid, pidff->reports[PID_SET_EFFECT],
@@ -499,12 +517,13 @@ static void pidff_playback_pid(struct pidff_device *pidff, int pid_id, int n)
 	} else {
 		pidff->effect_operation_status->value[0] =
 			pidff->operation_id[PID_EFFECT_START];
-		
-		n = clamp(n, pidff->effect_operation[PID_LOOP_COUNT].field->logical_minimum, 
+
+		n = clamp(n, pidff->effect_operation[PID_LOOP_COUNT].field->logical_minimum,
                                 pidff->effect_operation[PID_LOOP_COUNT].field->logical_maximum);
 		pidff->effect_operation[PID_LOOP_COUNT].value[0] = n;
 	}
 
+	hid_dbg(pidff->hid, "Playing effect %d %d times\n", pid_id, n);
 	hid_hw_request(pidff->hid, pidff->reports[PID_EFFECT_OPERATION],
 			HID_REQ_SET_REPORT);
 }
@@ -1231,7 +1250,7 @@ static int pidff_check_autocenter(struct pidff_device *pidff,
 /*
  * Check if the device is PID and initialize it
  */
-int hid_pidff_init_moza(struct hid_device *hid)
+int hid_pidff_init(struct hid_device *hid)
 {
 	struct pidff_device *pidff;
 	struct hid_input *hidinput = list_entry(hid->inputs.next,
@@ -1253,6 +1272,7 @@ int hid_pidff_init_moza(struct hid_device *hid)
 		return -ENOMEM;
 
 	pidff->hid = hid;
+	pidff->quirks = 0;
 
 	hid_device_io_start(hid);
 
@@ -1318,7 +1338,7 @@ int hid_pidff_init_moza(struct hid_device *hid)
 	ff->set_autocenter = pidff_set_autocenter;
 	ff->playback = pidff_playback;
 
-	hid_info(dev, "Force feedback for Moza wheel\n");
+	hid_info(dev, "Force feedback for USB HID PID devices\n");
 
 	hid_device_io_stop(hid);
 
@@ -1329,4 +1349,30 @@ int hid_pidff_init_moza(struct hid_device *hid)
 
 	kfree(pidff);
 	return error;
+}
+
+/*
+ * Check if the device is PID and initialize it
+ * Add quirks after initialisation
+ */
+int hid_pidff_init_with_quirks(struct hid_device *hid, unsigned quirks)
+{
+	int error = hid_pidff_init(hid);
+
+	if (error)
+		return error;
+
+	struct hid_input *hidinput = list_entry(hid->inputs.next,
+						struct hid_input, list);
+	struct input_dev *dev = hidinput->input;
+	struct pidff_device *pidff = dev->ff->private;
+
+	/* set quirks on the pidff device */
+	hid_device_io_start(hid);
+	pidff->quirks |= quirks;
+	hid_device_io_stop(hid);
+
+	hid_dbg(dev, "Device quirks: %d\n", pidff->quirks);
+
+ 	return 0;
 }

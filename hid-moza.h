@@ -10,6 +10,4 @@
 #define USB_DEVICE_ID_MOZA_R16  0x0000
 #define USB_DEVICE_ID_MOZA_R21  0x0000
 
-int hid_pidff_init_moza(struct hid_device *hdev);
-
 #endif
