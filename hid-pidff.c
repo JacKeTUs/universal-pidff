@@ -1250,7 +1250,7 @@ static int pidff_check_autocenter(struct pidff_device *pidff,
 /*
  * Check if the device is PID and initialize it
  */
-int hid_pidff_init(struct hid_device *hid, const struct hid_device_id *id)
+int hid_new_pidff_init(struct hid_device *hid, const struct hid_device_id *id)
 {
 	struct pidff_device *pidff;
 	struct hid_input *hidinput = list_entry(hid->inputs.next,
@@ -1272,7 +1272,7 @@ int hid_pidff_init(struct hid_device *hid, const struct hid_device_id *id)
 		return -ENOMEM;
 
 	pidff->hid = hid;
-	pidff->quirks |= id->device_data;
+	pidff->quirks |= id->driver_data;
 
 	hid_device_io_start(hid);
 
