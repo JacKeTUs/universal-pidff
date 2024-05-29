@@ -1,3 +1,3 @@
-obj-m := hid-new_pidff.o
-hid-new_pidff-y := hid-newpidff.o hid-pidff.o
+obj-m := hid-new-pidff.o
+hid-new-pidff-y := hid-newpidff.o hid-pidff.o
 ccflags-y := -Idrivers/hid
