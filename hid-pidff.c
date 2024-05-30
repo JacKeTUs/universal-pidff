@@ -65,6 +65,10 @@ static const u8 pidff_set_effect[] = {
 	0x22, 0x50, 0x52, 0x53, 0x54, 0x56, 0xa7
 };
 
+static const u8 pidff_set_effect_without_delay[] = {
+	0x22, 0x50, 0x52, 0x53, 0x54, 0x56
+};
+
 #define PID_ATTACK_LEVEL	1
 #define PID_ATTACK_TIME		2
 #define PID_FADE_LEVEL		3
@@ -1084,10 +1088,23 @@ static int pidff_init_fields(struct pidff_device *pidff, struct input_dev *dev)
 {
 	int envelope_ok = 0;
 
-	if (PIDFF_FIND_FIELDS(set_effect, PID_SET_EFFECT, 1)) {
-		hid_err(pidff->hid, "unknown set_effect report layout\n");
-		return -ENODEV;
+	if (pidff->quirks & PIDFF_QUIRK_NO_DELAY_EFFECT) {
+		hid_dbg(pidff->hid, "Find fields for set_effect without delay\n");
+		if (pidff_find_fields(pidff->set_effect, 
+					pidff_set_effect_without_delay,
+					pidff->reports[PID_SET_EFFECT], \
+					sizeof(pidff_set_effect_without_delay), 1)) {
+			hid_err(pidff->hid, "unknown set_effect report layout\n");
+			return -ENODEV;
+		}
 	}
+	else {
+		if (PIDFF_FIND_FIELDS(set_effect, PID_SET_EFFECT, 1)) {
+			hid_err(pidff->hid, "unknown set_effect report layout\n");
+			return -ENODEV;
+		}
+	}
+	
 
 	PIDFF_FIND_FIELDS(block_load, PID_BLOCK_LOAD, 0);
 	if (!pidff->block_load[PID_EFFECT_BLOCK_INDEX].value) {
