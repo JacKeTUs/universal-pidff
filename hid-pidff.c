@@ -303,10 +303,6 @@ static void pidff_set_effect_report(struct pidff_device *pidff,
 {
 	/* check for device quirks */
 	unsigned short direction = effect->direction;
-	unsigned short length = effect->replay.length;
-
-	if (pidff->quirks & PIDFF_QUIRK_FIX_0_INFINITE_LENGTH && length == 0)
-		length = 0xffff;
 
 	if ((effect->type == FF_DAMPER ||
 	    effect->type == FF_FRICTION ||
@@ -319,7 +315,8 @@ static void pidff_set_effect_report(struct pidff_device *pidff,
 		pidff->block_load[PID_EFFECT_BLOCK_INDEX].value[0];
 	pidff->set_effect_type->value[0] =
 		pidff->create_new_effect_type->value[0];
-	pidff->set_effect[PID_DURATION].value[0] = length;
+	pidff->set_effect[PID_DURATION].value[0] = 
+		effect->replay.length == 0 ? 0xffff : effect->replay.length;
 	pidff->set_effect[PID_TRIGGER_BUTTON].value[0] =
 		effect->trigger.button;
 	pidff->set_effect[PID_TRIGGER_REPEAT_INT].value[0] =

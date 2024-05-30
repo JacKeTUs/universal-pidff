@@ -5,12 +5,6 @@
 /* PIDFF Quirks to solve issues with certain devices */
 
 /*
- * Substitute 0 length with 0xffff to resolve issues with
- * infinite effects coming from windows API
-*/
-#define PIDFF_QUIRK_FIX_0_INFINITE_LENGTH   BIT(0)
-
-/*
  * Ignore direction for spring/damping/friction/inertia effects
  * and always set 16384
 */
