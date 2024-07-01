@@ -192,6 +192,7 @@ struct pidff_device {
 
 	int pid_id[PID_EFFECTS_MAX];
 	unsigned quirks;
+	short autocenter_effect_ids[PID_AUTOCENTER_EFFECTS];
 };
 
 /*
@@ -308,12 +309,8 @@ static void pidff_set_effect_report(struct pidff_device *pidff,
 	/* check for device quirks */
 	unsigned short direction = effect->direction;
 
-	if ((effect->type == FF_DAMPER ||
-	    effect->type == FF_FRICTION ||
-	    effect->type == FF_SPRING ||
-	    effect->type == FF_INERTIA) &&
-	    pidff->quirks & PIDFF_QUIRK_FIX_WHEEL_DIRECTION)
-		direction = 0x3FFF;
+	if (pidff->quirks & PIDFF_QUIRK_FIX_WHEEL_DIRECTION)
+		direction = 0x4000;
 
 	pidff->set_effect[PID_EFFECT_BLOCK_INDEX].value[0] =
 		pidff->block_load[PID_EFFECT_BLOCK_INDEX].value[0];
@@ -637,6 +634,17 @@ static int pidff_upload_effect(struct input_dev *dev, struct ff_effect *effect,
 			pidff_set_effect_report(pidff, effect);
 		if (!old || pidff_needs_set_periodic(effect, old))
 			pidff_set_periodic_report(pidff, effect);
+
+		if (pidff->quirks & PIDFF_QUIRK_FIX_PERIODIC_ENVELOPE)
+		{
+			effect->u.periodic.envelope.attack_level =
+				effect->u.periodic.envelope.attack_level == 0
+				? 0x7fff : effect->u.periodic.envelope.attack_level;
+
+			effect->u.periodic.envelope.fade_level =
+				effect->u.periodic.envelope.fade_level == 0
+				? 0x7fff : effect->u.periodic.envelope.fade_level;
+		}
 		if (!old ||
 		    pidff_needs_set_envelope(&effect->u.periodic.envelope,
 					&old->u.periodic.envelope))
@@ -1264,7 +1272,7 @@ static int pidff_check_autocenter(struct pidff_device *pidff,
 /*
  * Check if the device is PID and initialize it
  */
-int hid_new_pidff_init(struct hid_device *hid, const struct hid_device_id *id)
+int hid_pidff_init(struct hid_device *hid)
 {
 	struct pidff_device *pidff;
 	struct hid_input *hidinput = list_entry(hid->inputs.next,
@@ -1286,7 +1294,6 @@ int hid_new_pidff_init(struct hid_device *hid, const struct hid_device_id *id)
 		return -ENOMEM;
 
 	pidff->hid = hid;
-	pidff->quirks |= id->driver_data;
 
 	hid_device_io_start(hid);
 
@@ -1363,4 +1370,30 @@ int hid_new_pidff_init(struct hid_device *hid, const struct hid_device_id *id)
 
 	kfree(pidff);
 	return error;
+}
+
+/*
+ * Check if the device is PID and initialize it
+ * Add quirks after initialisation
+ */
+int hid_pidff_init_with_quirks(struct hid_device *hid, const struct hid_device_id *id)
+{
+	int error = hid_pidff_init(hid);
+
+	if (error)
+		return error;
+
+	struct hid_input *hidinput = list_entry(hid->inputs.next,
+						struct hid_input, list);
+	struct input_dev *dev = hidinput->input;
+	struct pidff_device *pidff = dev->ff->private;
+
+	/* set quirks on the pidff device */
+	hid_device_io_start(hid);
+	pidff->quirks |= id->driver_data;
+	hid_device_io_stop(hid);
+
+	hid_dbg(dev, "Device quirks: %d\n", pidff->quirks);
+
+ 	return 0;
 }
