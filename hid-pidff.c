@@ -192,7 +192,6 @@ struct pidff_device {
 
 	int pid_id[PID_EFFECTS_MAX];
 	unsigned quirks;
-	short autocenter_effect_ids[PID_AUTOCENTER_EFFECTS];
 };
 
 /*
@@ -316,7 +315,7 @@ static void pidff_set_effect_report(struct pidff_device *pidff,
 		pidff->block_load[PID_EFFECT_BLOCK_INDEX].value[0];
 	pidff->set_effect_type->value[0] =
 		pidff->create_new_effect_type->value[0];
-	pidff->set_effect[PID_DURATION].value[0] = 
+	pidff->set_effect[PID_DURATION].value[0] =
 		effect->replay.length == 0 ? 0xffff : effect->replay.length;
 	pidff->set_effect[PID_TRIGGER_BUTTON].value[0] =
 		effect->trigger.button;
@@ -1098,7 +1097,7 @@ static int pidff_init_fields(struct pidff_device *pidff, struct input_dev *dev)
 
 	if (pidff->quirks & PIDFF_QUIRK_NO_DELAY_EFFECT) {
 		hid_dbg(pidff->hid, "Find fields for set_effect without delay\n");
-		if (pidff_find_fields(pidff->set_effect, 
+		if (pidff_find_fields(pidff->set_effect,
 					pidff_set_effect_without_delay,
 					pidff->reports[PID_SET_EFFECT], \
 					sizeof(pidff_set_effect_without_delay), 1)) {
@@ -1112,7 +1111,7 @@ static int pidff_init_fields(struct pidff_device *pidff, struct input_dev *dev)
 			return -ENODEV;
 		}
 	}
-	
+
 
 	PIDFF_FIND_FIELDS(block_load, PID_BLOCK_LOAD, 0);
 	if (!pidff->block_load[PID_EFFECT_BLOCK_INDEX].value) {
