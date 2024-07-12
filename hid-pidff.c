@@ -25,6 +25,14 @@
 
 #define	PID_EFFECTS_MAX		64
 
+/*
+ * This is 16384 or 90 degrees in polar coordinates (up)
+ * Racing games exclusively use polar coordinates but sometimes
+ * SDL/Proton mess with this value as they try to do
+ * some conversions to fix FFB for flight sticks
+ */
+#define PIDFF_FIXED_DIRECTION	0x4000
+
 /* Report usage table used to put reports into an array */
 
 #define PID_SET_EFFECT		0
@@ -343,7 +351,7 @@ static void pidff_set_effect_report(struct pidff_device *pidff,
 	unsigned short direction = effect->direction;
 
 	if (pidff->quirks & PIDFF_QUIRK_FIX_WHEEL_DIRECTION)
-		direction = 0x4000;
+		direction = PIDFF_FIXED_DIRECTION;
 
 	pidff->set_effect[PID_EFFECT_BLOCK_INDEX].value[0] =
 		pidff->block_load[PID_EFFECT_BLOCK_INDEX].value[0];
