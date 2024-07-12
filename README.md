@@ -10,10 +10,7 @@ And that's basically it
 ## What devices are supported?
 ### Bases:
 1. MOZA R3, R5, R9, R12, R16, R21
-1. ...
-
-### Wheel rims (others yet untested):
-1. MOZA RS V2 (with Moza wheelbases)
+2. ...
 
 ## What works?
 1. FFB (all effects from device descriptor)
@@ -51,13 +48,13 @@ To unload module:
 `sudo rmmod hid_moza_ff`
 
 ## How to set up a base parameters?
-
 ### MOZA
-For now, please, use [Android App](https://play.google.com/store/apps/details?id=com.gudsen.mozapithouse)
+**[Boxflat](https://github.com/Lawstorant/boxflat)** is a Linux Pit House alternative made by [@Lawstorant](https://github.com/Lawstorant)
 
+**[Android App](https://play.google.com/store/apps/details?id=com.gudsen.mozapithouse)**
 
 ## Known issues with the driver
-1. Firmware update does not work. Please use Windows machine or Windows VM for any firmware updates
+- Buttons above 80 simply don't show up. This is a Linux limitation and we're trying to fix that in the upstream
 
 ## Known issues with the firmware
 You tell me please
