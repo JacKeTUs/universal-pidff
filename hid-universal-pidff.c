@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * Improved HID PIDFF driver
+ * HID PIDFF wrapper
  * First of all targeting steering wheels and wheelbases
  *
  * Copyright (c) 2024 Makarenko Oleg
@@ -14,15 +14,15 @@
 
 static const struct hid_device_id pidff_wheel_devices[] = {
 	{ HID_USB_DEVICE(USB_VENDOR_ID_MOZA, USB_DEVICE_ID_MOZA_R3),
-		.driver_data = PIDFF_QUIRK_FIX_WHEEL_DIRECTION | PIDFF_QUIRK_FIX_0_INFINITE_LENGTH },
+		.driver_data = PIDFF_QUIRK_FIX_WHEEL_DIRECTION | PIDFF_QUIRK_FIX_PERIODIC_ENVELOPE },
 	{ HID_USB_DEVICE(USB_VENDOR_ID_MOZA, USB_DEVICE_ID_MOZA_R5),
-		.driver_data = PIDFF_QUIRK_FIX_WHEEL_DIRECTION | PIDFF_QUIRK_FIX_0_INFINITE_LENGTH },
+		.driver_data = PIDFF_QUIRK_FIX_WHEEL_DIRECTION | PIDFF_QUIRK_FIX_PERIODIC_ENVELOPE },
 	{ HID_USB_DEVICE(USB_VENDOR_ID_MOZA, USB_DEVICE_ID_MOZA_R9),
-		.driver_data = PIDFF_QUIRK_FIX_WHEEL_DIRECTION | PIDFF_QUIRK_FIX_0_INFINITE_LENGTH },
+		.driver_data = PIDFF_QUIRK_FIX_WHEEL_DIRECTION | PIDFF_QUIRK_FIX_PERIODIC_ENVELOPE },
 	{ HID_USB_DEVICE(USB_VENDOR_ID_MOZA, USB_DEVICE_ID_MOZA_R12),
-		.driver_data = PIDFF_QUIRK_FIX_WHEEL_DIRECTION | PIDFF_QUIRK_FIX_0_INFINITE_LENGTH },
+		.driver_data = PIDFF_QUIRK_FIX_WHEEL_DIRECTION | PIDFF_QUIRK_FIX_PERIODIC_ENVELOPE },
 	{ HID_USB_DEVICE(USB_VENDOR_ID_MOZA, USB_DEVICE_ID_MOZA_R16_R21),
-		.driver_data = PIDFF_QUIRK_FIX_WHEEL_DIRECTION | PIDFF_QUIRK_FIX_0_INFINITE_LENGTH },
+		.driver_data = PIDFF_QUIRK_FIX_WHEEL_DIRECTION | PIDFF_QUIRK_FIX_PERIODIC_ENVELOPE },
 	{ }
 };
 MODULE_DEVICE_TABLE(hid, pidff_wheel_devices);
@@ -39,7 +39,7 @@ static u8 *moza_report_fixup(struct hid_device *hdev, __u8 *rdesc,
 }
 
 
-static u8 *new_pidff_report_fixup(struct hid_device *hdev, __u8 *rdesc,
+static u8 *universal_pidff_report_fixup(struct hid_device *hdev, __u8 *rdesc,
                                         unsigned int *rsize)
 {
 		if (hdev->vendor == USB_VENDOR_ID_MOZA) {
@@ -53,7 +53,7 @@ static u8 *new_pidff_report_fixup(struct hid_device *hdev, __u8 *rdesc,
  * Check if the device is PID and initialize it
  * Add quirks after initialisation
  */
-static int new_pidff_probe(struct hid_device *hdev,
+static int universal_pidff_probe(struct hid_device *hdev,
 				const struct hid_device_id *id)
 {
 	int ret;
@@ -69,7 +69,7 @@ static int new_pidff_probe(struct hid_device *hdev,
 		goto err;
 	}
 
-	ret = hid_new_pidff_init(hdev, id);
+	ret = hid_pidff_init_with_quirks(hdev, id);
 	if (ret) {
 		hid_warn(hdev, "Force feedback not supported\n");
 		goto err;
@@ -80,7 +80,7 @@ err:
 	return ret;
 }
 
-static int new_pidff_input_configured(struct hid_device *hdev,
+static int universal_pidff_input_configured(struct hid_device *hdev,
 				struct hid_input *hidinput)
 {
 	struct input_dev *input = hidinput->input;
@@ -90,15 +90,15 @@ static int new_pidff_input_configured(struct hid_device *hdev,
 	return 0;
 }
 
-static struct hid_driver new_pidff = {
-	.name = "new-pidff",
+static struct hid_driver universal_pidff = {
+	.name = "hid-universal-pidff",
 	.id_table = pidff_wheel_devices,
-	.probe = new_pidff_probe,
-	.input_configured = new_pidff_input_configured,
-	.report_fixup = new_pidff_report_fixup
+	.probe = universal_pidff_probe,
+	.input_configured = universal_pidff_input_configured,
+	.report_fixup = universal_pidff_report_fixup
 };
-module_hid_driver(new_pidff);
+module_hid_driver(universal_pidff);
 
 MODULE_AUTHOR("Oleg Makarenko <oleg@makarenk.ooo>");
-MODULE_DESCRIPTION("Improved HID PIDFF Driver");
+MODULE_DESCRIPTION("Universal HID PIDFF Driver");
 MODULE_LICENSE("GPL");

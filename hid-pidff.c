@@ -25,6 +25,14 @@
 
 #define	PID_EFFECTS_MAX		64
 
+/*
+ * This is 16384 or 90 degrees in polar coordinates (up)
+ * Racing games exclusively use polar coordinates but sometimes
+ * SDL/Proton mess with this value as they try to do
+ * some conversions to fix FFB for flight sticks
+ */
+#define PIDFF_FIXED_DIRECTION	0x4000
+
 /* Report usage table used to put reports into an array */
 
 #define PID_SET_EFFECT		0
@@ -213,6 +221,36 @@ static int pidff_rescale_signed(int i, struct hid_field *field)
 	    field->logical_minimum / -0x8000;
 }
 
+/*
+ * Clamp minimum value for the given field
+ */
+static int pidff_clamp_min(int i, struct hid_field *field)
+{
+	int ret =  i < field->logical_minimum ? field->logical_minimum : i;
+	pr_debug("clamped min value from %d to %d\n", i, ret);
+	return ret;
+}
+
+/*
+ * Clamp maximum value for the given field
+ */
+static int pidff_clamp_max(int i, struct hid_field *field)
+{
+	int ret = i > field->logical_maximum ? field->logical_maximum : i;
+	pr_debug("clamped max value from %d to %d\n", i, ret);
+	return ret;
+}
+
+/*
+ * Clamp value for the given field
+ */
+static int pidff_clamp(int i, struct hid_field *field)
+{
+	i = pidff_clamp_min(i, field);
+	i = pidff_clamp_max(i, field);
+	return i;
+}
+
 static void pidff_set(struct pidff_usage *usage, u16 value)
 {
 	usage->value[0] = pidff_rescale(value, 0xffff, usage->field);
@@ -255,7 +293,11 @@ static void pidff_set_envelope_report(struct pidff_device *pidff,
 	pidff->set_envelope[PID_ATTACK_TIME].value[0] = envelope->attack_length;
 	pidff->set_envelope[PID_FADE_TIME].value[0] = envelope->fade_length;
 
-	hid_dbg(pidff->hid, "attack %u => %d\n",
+	hid_dbg(pidff->hid, "attack level %u => %d\n",
+		envelope->attack_level,
+		pidff->set_envelope[PID_ATTACK_LEVEL].value[0]);
+
+	hid_dbg(pidff->hid, "fade level %u => %d\n",
 		envelope->attack_level,
 		pidff->set_envelope[PID_ATTACK_LEVEL].value[0]);
 
@@ -308,18 +350,14 @@ static void pidff_set_effect_report(struct pidff_device *pidff,
 	/* check for device quirks */
 	unsigned short direction = effect->direction;
 
-	if ((effect->type == FF_DAMPER ||
-	    effect->type == FF_FRICTION ||
-	    effect->type == FF_SPRING ||
-	    effect->type == FF_INERTIA) &&
-	    pidff->quirks & PIDFF_QUIRK_FIX_WHEEL_DIRECTION)
-		direction = 0x3FFF;
+	if (pidff->quirks & PIDFF_QUIRK_FIX_WHEEL_DIRECTION)
+		direction = PIDFF_FIXED_DIRECTION;
 
 	pidff->set_effect[PID_EFFECT_BLOCK_INDEX].value[0] =
 		pidff->block_load[PID_EFFECT_BLOCK_INDEX].value[0];
 	pidff->set_effect_type->value[0] =
 		pidff->create_new_effect_type->value[0];
-	pidff->set_effect[PID_DURATION].value[0] = 
+	pidff->set_effect[PID_DURATION].value[0] =
 		effect->replay.length == 0 ? 0xffff : effect->replay.length;
 	pidff->set_effect[PID_TRIGGER_BUTTON].value[0] =
 		effect->trigger.button;
@@ -363,7 +401,7 @@ static void pidff_set_periodic_report(struct pidff_device *pidff,
 	pidff_set_signed(&pidff->set_periodic[PID_OFFSET],
 			 effect->u.periodic.offset);
 	pidff_set(&pidff->set_periodic[PID_PHASE], effect->u.periodic.phase);
-	pidff->set_periodic[PID_PERIOD].value[0] = effect->u.periodic.period;
+	pidff->set_periodic[PID_PERIOD].value[0] = pidff_clamp(effect->u.periodic.period, pidff->set_periodic[PID_PERIOD].field);
 
 	hid_hw_request(pidff->hid, pidff->reports[PID_SET_PERIODIC],
 			HID_REQ_SET_REPORT);
@@ -637,6 +675,17 @@ static int pidff_upload_effect(struct input_dev *dev, struct ff_effect *effect,
 			pidff_set_effect_report(pidff, effect);
 		if (!old || pidff_needs_set_periodic(effect, old))
 			pidff_set_periodic_report(pidff, effect);
+
+		if (pidff->quirks & PIDFF_QUIRK_FIX_PERIODIC_ENVELOPE)
+		{
+			effect->u.periodic.envelope.attack_level =
+				effect->u.periodic.envelope.attack_level == 0
+				? 0x7fff : effect->u.periodic.envelope.attack_level;
+
+			effect->u.periodic.envelope.fade_level =
+				effect->u.periodic.envelope.fade_level == 0
+				? 0x7fff : effect->u.periodic.envelope.fade_level;
+		}
 		if (!old ||
 		    pidff_needs_set_envelope(&effect->u.periodic.envelope,
 					&old->u.periodic.envelope))
@@ -1090,7 +1139,7 @@ static int pidff_init_fields(struct pidff_device *pidff, struct input_dev *dev)
 
 	if (pidff->quirks & PIDFF_QUIRK_NO_DELAY_EFFECT) {
 		hid_dbg(pidff->hid, "Find fields for set_effect without delay\n");
-		if (pidff_find_fields(pidff->set_effect, 
+		if (pidff_find_fields(pidff->set_effect,
 					pidff_set_effect_without_delay,
 					pidff->reports[PID_SET_EFFECT], \
 					sizeof(pidff_set_effect_without_delay), 1)) {
@@ -1104,7 +1153,7 @@ static int pidff_init_fields(struct pidff_device *pidff, struct input_dev *dev)
 			return -ENODEV;
 		}
 	}
-	
+
 
 	PIDFF_FIND_FIELDS(block_load, PID_BLOCK_LOAD, 0);
 	if (!pidff->block_load[PID_EFFECT_BLOCK_INDEX].value) {
@@ -1264,7 +1313,7 @@ static int pidff_check_autocenter(struct pidff_device *pidff,
 /*
  * Check if the device is PID and initialize it
  */
-int hid_new_pidff_init(struct hid_device *hid, const struct hid_device_id *id)
+int hid_pidff_init(struct hid_device *hid)
 {
 	struct pidff_device *pidff;
 	struct hid_input *hidinput = list_entry(hid->inputs.next,
@@ -1286,7 +1335,6 @@ int hid_new_pidff_init(struct hid_device *hid, const struct hid_device_id *id)
 		return -ENOMEM;
 
 	pidff->hid = hid;
-	pidff->quirks |= id->driver_data;
 
 	hid_device_io_start(hid);
 
@@ -1363,4 +1411,30 @@ int hid_new_pidff_init(struct hid_device *hid, const struct hid_device_id *id)
 
 	kfree(pidff);
 	return error;
+}
+
+/*
+ * Check if the device is PID and initialize it
+ * Add quirks after initialisation
+ */
+int hid_pidff_init_with_quirks(struct hid_device *hid, const struct hid_device_id *id)
+{
+	int error = hid_pidff_init(hid);
+
+	if (error)
+		return error;
+
+	struct hid_input *hidinput = list_entry(hid->inputs.next,
+						struct hid_input, list);
+	struct input_dev *dev = hidinput->input;
+	struct pidff_device *pidff = dev->ff->private;
+
+	/* set quirks on the pidff device */
+	hid_device_io_start(hid);
+	pidff->quirks |= id->driver_data;
+	hid_device_io_stop(hid);
+
+	hid_dbg(dev, "Device quirks: %d\n", pidff->quirks);
+
+ 	return 0;
 }
