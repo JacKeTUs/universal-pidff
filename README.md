@@ -42,16 +42,16 @@ Alternatively, you can install it through DKMS or manually.
 5. Reboot
 
 To remove module:
-`sudo dkms remove universal-ff/<version> --all`
+`sudo dkms remove universal-pidff/<version> --all`
 ### Manually
 
 1. Install `linux-headers-$(uname -r)`
 2. Clone repository
 3. `make`
-4. `sudo insmod hid-universal-ff.ko`
+4. `sudo insmod hid-universal-pidff.ko`
 
 To unload module:
-`sudo rmmod hid_universal_ff`
+`sudo rmmod hid_universal_pidff`
 
 ## How to set up a base parameters?
 ### MOZA
