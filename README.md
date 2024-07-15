@@ -1,9 +1,9 @@
-# Force feedback support for MOZA steering wheels
+# Patched PIDFF driver for Linux
 
-Linux module driver for MOZA driving wheels.
+Linux PIDFF driver with useful patches. Primarily targeting Direct Drive wheelbases.
 
-MOZA wheels are basically DirectInput wheels.
-In that repository - copy of pidff driver from 6.6 kernel with some changes around infinite length effects (like that https://github.com/berarma/ffbtools/issues/26)
+Most DirectDrive wheelbases are basically DirectInput wheels. 
+In that repository - pidff driver with some changes, which allows most of the direct drive wheels to work
 
 And that's basically it
 
@@ -20,32 +20,32 @@ And that's basically it
 ## What does not work?
 1. Telemetry functions (Shift lights, displays, SimHub, etc), mostly because telemetry works only with proprietary soft, which can't get access to shared memory chunks from games.
 2. `Firmware Update` function. Use Windows PC or Windows VM at the moment.
-3. Setup through MOZA PitHouse even with [some tweaking](#how-to-set-up-a-base-parameters))
+3. Setup through proprietary software. May require [some tweaking](#how-to-set-up-a-base-parameters))
 
 ## How to use this driver?
-There's an [AUR packege](https://aur.archlinux.org/packages/moza-ff-dkms-git) for Arch Linux maintained by @Lawstorant
+There's an [AUR packege](https://aur.archlinux.org/packages/universal-ff-dkms-git) for Arch Linux maintained by @Lawstorant
 
 Alternatively, you can install it through DKMS or manually.
 ### DKMS
 1. Install `dkms`
-2. Clone repository to `/usr/src/moza-ff`
+2. Clone repository to `/usr/src/universal-pidff`
 3. Install the module:
-`sudo dkms install /usr/src/moza-ff`
+`sudo dkms install /usr/src/universal-pidff`
 4. Update initramfs:
 `sudo update-initramfs -u`
 5. Reboot
 
 To remove module:
-`sudo dkms remove moza-ff/<version> --all`
+`sudo dkms remove universal-ff/<version> --all`
 ### Manually
 
 1. Install `linux-headers-$(uname -r)`
 2. Clone repository
 3. `make`
-4. `sudo insmod hid-moza-ff.ko`
+4. `sudo insmod hid-universal-ff.ko`
 
 To unload module:
-`sudo rmmod hid_moza_ff`
+`sudo rmmod hid_universal_ff`
 
 ## How to set up a base parameters?
 ### MOZA
