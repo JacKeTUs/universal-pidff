@@ -19,6 +19,18 @@
 */
 #define PIDFF_QUIRK_NO_DELAY_EFFECT         BIT(2)
 
+/*
+ * Ignore PARAM_BLOCK_OFFSET (Axis number).
+ * Most of the wheelbases have only one Axis
+*/
+#define PIDFF_QUIRK_NO_PID_PARAM_BLOCK_OFFSET   BIT(3)
+
+/*
+ * Some wheelbases don't have some PID_CONTROL fields.
+ * PID standard does not define fields that MUST exist, but
+ *  that driver was strict about them. This quirk disables it.
+*/
+#define PIDFF_QUIRK_NO_STRICT_PID_CONTROL       BIT(4)
 
 int hid_pidff_init(struct hid_device *hid);
 int hid_pidff_init_with_quirks(struct hid_device *hid, const struct hid_device_id *id);
