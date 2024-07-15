@@ -83,6 +83,7 @@ err:
 static int universal_pidff_input_configured(struct hid_device *hdev,
 				struct hid_input *hidinput)
 {
+	// Remove fuzz and deadzone
 	struct input_dev *input = hidinput->input;
 	input_set_abs_params(input, ABS_X,
 		input->absinfo[ABS_X].minimum, input->absinfo[ABS_X].maximum, 0, 0);
