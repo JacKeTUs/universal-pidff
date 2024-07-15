@@ -94,6 +94,11 @@ static const u8 pidff_set_condition[] = {
 	0x22, 0x23, 0x60, 0x61, 0x62, 0x63, 0x64, 0x65
 };
 
+static const u8 pidff_set_condition_without_pbo[] = {
+	0x22, 0x60, 0x61, 0x62, 0x63, 0x64, 0x65
+};
+
+
 #define PID_MAGNITUDE		1
 #define PID_OFFSET		2
 #define PID_PHASE		3
@@ -432,12 +437,19 @@ static void pidff_set_condition_report(struct pidff_device *pidff,
 				       struct ff_effect *effect)
 {
 	int i;
+	// Later we should take axis number out of the device.
+	// Our driver must work with MOZA AB9 FFB Base
+	int max_axis = 2;
 
 	pidff->set_condition[PID_EFFECT_BLOCK_INDEX].value[0] =
 		pidff->block_load[PID_EFFECT_BLOCK_INDEX].value[0];
 
-	for (i = 0; i < 2; i++) {
-		pidff->set_condition[PID_PARAM_BLOCK_OFFSET].value[0] = i;
+	if (pidff->quirks & PIDFF_QUIRK_NO_PID_PARAM_BLOCK_OFFSET)
+		max_axis = 1;
+	
+	for (i = 0; i < max_axis; i++) {
+		if (! (pidff->quirks & PIDFF_QUIRK_NO_PID_PARAM_BLOCK_OFFSET) ) 
+			pidff->set_condition[PID_PARAM_BLOCK_OFFSET].value[0] = i;
 		pidff_set_signed(&pidff->set_condition[PID_CP_OFFSET],
 				 effect->u.condition[i].center);
 		pidff_set_signed(&pidff->set_condition[PID_POS_COEFFICIENT],
@@ -999,6 +1011,10 @@ static int pidff_find_special_fields(struct pidff_device *pidff)
 {
 	hid_dbg(pidff->hid, "finding special fields\n");
 
+	int strict_pid_device_control = 1;
+
+	if (pidff->quirks & PIDFF_QUIRK_NO_STRICT_PID_CONTROL)
+		strict_pid_device_control = 0;
 	pidff->create_new_effect_type =
 		pidff_find_special_field(pidff->reports[PID_CREATE_NEW_EFFECT],
 					 0x25, 1);
@@ -1010,7 +1026,7 @@ static int pidff_find_special_fields(struct pidff_device *pidff)
 					 0x57, 0);
 	pidff->device_control =
 		pidff_find_special_field(pidff->reports[PID_DEVICE_CONTROL],
-					 0x96, 1);
+					 0x96, strict_pid_device_control);
 	pidff->block_load_status =
 		pidff_find_special_field(pidff->reports[PID_BLOCK_LOAD],
 					 0x8b, 1);
@@ -1207,7 +1223,23 @@ static int pidff_init_fields(struct pidff_device *pidff, struct input_dev *dev)
 		clear_bit(FF_RAMP, dev->ffbit);
 	}
 
-	if ((test_bit(FF_SPRING, dev->ffbit) ||
+	if (pidff->quirks & PIDFF_QUIRK_NO_PID_PARAM_BLOCK_OFFSET) {
+		if ((test_bit(FF_SPRING, dev->ffbit) ||
+			test_bit(FF_DAMPER, dev->ffbit) ||
+			test_bit(FF_FRICTION, dev->ffbit) ||
+			test_bit(FF_INERTIA, dev->ffbit)) &&
+			pidff_find_fields(pidff->set_condition,
+						pidff_set_condition_without_pbo,
+						pidff->reports[PID_SET_CONDITION], \
+						sizeof(pidff_set_condition_without_pbo), 1)) {
+			hid_warn(pidff->hid, "unknown condition effect layout (w/o PBO)\n");
+			clear_bit(FF_SPRING, dev->ffbit);
+			clear_bit(FF_DAMPER, dev->ffbit);
+			clear_bit(FF_FRICTION, dev->ffbit);
+			clear_bit(FF_INERTIA, dev->ffbit);
+		}	
+	}
+	else if ((test_bit(FF_SPRING, dev->ffbit) ||
 	     test_bit(FF_DAMPER, dev->ffbit) ||
 	     test_bit(FF_FRICTION, dev->ffbit) ||
 	     test_bit(FF_INERTIA, dev->ffbit)) &&
