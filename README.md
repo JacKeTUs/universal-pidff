@@ -1,9 +1,15 @@
-# Patched PIDFF driver for Linux
+# Universal Force Feedback driver for Linux
 
-Linux PIDFF driver with useful patches. Primarily targeting Direct Drive wheelbases.
+Linux PIDFF driver with useful patches for initialization of FFB devices. Primarily targeting Direct Drive wheelbases.
 
-Most DirectDrive wheelbases are basically DirectInput wheels. 
-In that repository - pidff driver with some changes, which allows most of the direct drive wheels to work
+## What's different between this and native pidff driver?
+That driver allows most DirectDrive wheelbases to initialize and work.
+Most of the DirectDrive wheelbases are basically DirectInput wheels, but with some caveats, which Windows allows, but pidff doesn't.
+In that repository - pidff driver with some changes, which allows most of the DirectDrive wheelbases to work.
+
+1. Added quirks for better initialization rules for different wheelbases (MOZA, VRS, Cammus)
+2. Fixes for infinite-length effects
+3. Fixes for out-of-bounds values (no more spam in kernel logs)
 
 And that's basically it
 
