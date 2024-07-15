@@ -20,7 +20,6 @@
 #define PIDFF_QUIRK_NO_DELAY_EFFECT         BIT(2)
 
 
-int hid_pidff_init(struct hid_device *hid);
-int hid_pidff_init_with_quirks(struct hid_device *hid, const struct hid_device_id *id);
+int hid_pidff_init(struct hid_device *hid, const struct hid_device_id *id);
 
 #endif

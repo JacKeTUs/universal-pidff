@@ -69,9 +69,9 @@ static int universal_pidff_probe(struct hid_device *hdev,
 		goto err;
 	}
 
-	ret = hid_pidff_init_with_quirks(hdev, id);
+	ret = hid_pidff_init(hdev, id);
 	if (ret) {
-		hid_warn(hdev, "Force feedback not supported\n");
+		hid_warn(hdev, "Force feedback is not supported\n");
 		goto err;
 	}
 
