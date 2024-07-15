@@ -401,8 +401,8 @@ static void pidff_set_periodic_report(struct pidff_device *pidff,
 	pidff_set_signed(&pidff->set_periodic[PID_OFFSET],
 			 effect->u.periodic.offset);
 	pidff_set(&pidff->set_periodic[PID_PHASE], effect->u.periodic.phase);
-	// Actually we just can use clamp macro here
-	// include/linux/kernel.h#L59
+	// Actually we just can use clamp macro
+	//  from include/linux/kernel.h#L59
 	// But for the debug purposes we're leaving it as is
 	pidff->set_periodic[PID_PERIOD].value[0] = 
 		pidff_clamp(effect->u.periodic.period, 
