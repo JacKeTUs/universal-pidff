@@ -35,7 +35,6 @@
 */
 #define PIDFF_QUIRK_NO_STRICT_PID_CONTROL       BIT(4)
 
-int hid_pidff_init(struct hid_device *hid);
-int hid_pidff_init_with_quirks(struct hid_device *hid, const struct hid_device_id *id);
+int hid_pidff_init_quirks(struct hid_device *hid, const struct hid_device_id *id);
 
 #endif
