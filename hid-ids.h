@@ -11,5 +11,7 @@
 
 #define USB_VENDOR_ID_VRS           0x0483
 #define USB_DEVICE_ID_VRS_DFP       0xa355
+#define USB_VENDOR_ID_CAMMUS        0x3416
+#define USB_DEVICE_ID_CAMMUS_C5     0x0301
 
 #endif

@@ -16,8 +16,9 @@ And that's basically it
 ## What devices are supported?
 ### Bases:
 1. MOZA R3, R5, R9, R12, R16, R21
-2. VRS DirectForce Pro
-3. ...
+2. Cammus C5
+3. VRS DirectForce Pro
+4. ...
 
 ## What works?
 1. FFB (all effects from device descriptor)
@@ -59,6 +60,9 @@ To unload module:
 **[Boxflat](https://github.com/Lawstorant/boxflat)** is a Linux Pit House alternative made by [@Lawstorant](https://github.com/Lawstorant)
 
 **[Android App](https://play.google.com/store/apps/details?id=com.gudsen.mozapithouse)**
+
+### Cammus
+**[Android App](https://play.google.com/store/apps/details?id=com.cammus.simulator)**
 
 ### VRS DirectForce Pro
 You can do it through VRS with Wine. You need to tweak Wine prefix for them.
