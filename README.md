@@ -30,11 +30,15 @@ And that's basically it
 3. Setup through proprietary software. May require [some tweaking](#how-to-set-up-a-base-parameters))
 
 ## How to use this driver?
-There's an [AUR packege](https://aur.archlinux.org/packages/universal-ff-dkms-git) for Arch Linux maintained by @Lawstorant
+You can install it through AUR package, through DKMS or manually.
 
-Alternatively, you can install it through DKMS or manually.
+### AUR package
+There's an [AUR package](https://aur.archlinux.org/packages/universal-ff-dkms-git) for Arch Linux maintained by [@Lawstorant](https://github.com/Lawstorant).
+
 ### DKMS
-1. Install `dkms`
+DKMS will install module into system, and will update it every time you update your kernel. Module will persist after reboots. It's the preferrable way to install it on the most distros.
+
+1. Install `dkms` package from your distro package manager
 2. Clone repository to `/usr/src/universal-pidff`
 3. Install the module:
 `sudo dkms install /usr/src/universal-pidff`
@@ -44,12 +48,13 @@ Alternatively, you can install it through DKMS or manually.
 
 To remove module:
 `sudo dkms remove universal-pidff/<version> --all`
-### Manually
 
-1. Install `linux-headers-$(uname -r)`
-2. Clone repository
-3. `make`
-4. `sudo insmod hid-universal-pidff.ko`
+### Manually
+Best for debugging purposes, where you need frequently change codebase/branches
+1. Install `linux-headers-$(uname -r)` and `build-essential` packages from your distro package manager
+2. Clone repository anywhere you want and `cd` into that directory
+3. `make`. Alternatively, you can enable debug logs from the driver with `make debug`
+4. Load module into system with `sudo insmod hid-universal-pidff.ko`
 
 To unload module:
 `sudo rmmod hid_universal_pidff`
