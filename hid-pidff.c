@@ -1322,7 +1322,7 @@ static int pidff_check_autocenter(struct pidff_device *pidff,
 /*
  * Check if the device is PID and initialize it, with quirks
  */
-int hid_pidff_init(struct hid_device *hid, const struct hid_device_id *id)
+int hid_pidff_init_quirks(struct hid_device *hid, const struct hid_device_id *id)
 {
 	struct pidff_device *pidff;
 	struct hid_input *hidinput = list_entry(hid->inputs.next,
