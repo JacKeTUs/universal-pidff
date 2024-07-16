@@ -16,7 +16,8 @@ And that's basically it
 ## What devices are supported?
 ### Bases:
 1. MOZA R3, R5, R9, R12, R16, R21
-2. ...
+2. Cammus C5
+3. ...
 
 ## What works?
 1. FFB (all effects from device descriptor)
@@ -58,6 +59,9 @@ To unload module:
 **[Boxflat](https://github.com/Lawstorant/boxflat)** is a Linux Pit House alternative made by [@Lawstorant](https://github.com/Lawstorant)
 
 **[Android App](https://play.google.com/store/apps/details?id=com.gudsen.mozapithouse)**
+
+### Cammus
+**[Android App](https://play.google.com/store/apps/details?id=com.cammus.simulator)**
 
 ## Known issues with the driver
 - Buttons above 80 simply don't show up. This is a Linux limitation and we're trying to fix that in the upstream

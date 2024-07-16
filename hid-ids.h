@@ -9,4 +9,7 @@
 #define USB_DEVICE_ID_MOZA_R12      0x0006
 #define USB_DEVICE_ID_MOZA_R16_R21  0x0000
 
+#define USB_VENDOR_ID_CAMMUS        0x3416
+#define USB_DEVICE_ID_CAMMUS_C5     0x0301
+
 #endif
