@@ -29,7 +29,7 @@ And that's basically it
 2. `Firmware Update` function. Use Windows PC or Windows VM at the moment.
 3. Setup through proprietary software. May require [some tweaking](#how-to-set-up-a-base-parameters))
 
-## How to use this driver?
+## How to install this driver?
 You can install it through AUR package, through DKMS or manually.
 
 On SecureBoot enabled systems you will need additional steps for load this driver into the system. See [Signing](docs/SIGNING.md#signing) section.
