@@ -59,7 +59,7 @@ Best for debugging purposes, where you need frequently change codebase/branches
 4. Load module into system with `sudo insmod hid-universal-pidff.ko`
 
 To unload module:
-`sudo rmmod hid_universal_pidff`'
+`sudo rmmod hid_universal_pidff`
 
 ## How to set up a base parameters?
 ### MOZA
