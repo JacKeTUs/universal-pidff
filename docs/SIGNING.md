@@ -2,7 +2,7 @@
 # Signing
 
 ## Signing module for SecureBoot
-Latest kernels forbid loading custom kernel modules into the system with SecureBoot enabled.
+Latest kernels forbid loading unsigned custom kernel modules into the system with SecureBoot enabled.
 
 For SecureBoot enabled system you have a choice:
 1. Disable SecureBoot in your UEFI/BIOS
