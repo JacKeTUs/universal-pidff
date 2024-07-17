@@ -32,6 +32,8 @@ And that's basically it
 ## How to use this driver?
 You can install it through AUR package, through DKMS or manually.
 
+On SecureBoot enabled systems you will need additional steps for load this driver into the system. See [Signing](docs/SIGNING.md#signing)
+
 ### AUR package
 There's an [AUR package](https://aur.archlinux.org/packages/universal-ff-dkms-git) for Arch Linux maintained by [@Lawstorant](https://github.com/Lawstorant).
 
@@ -57,7 +59,7 @@ Best for debugging purposes, where you need frequently change codebase/branches
 4. Load module into system with `sudo insmod hid-universal-pidff.ko`
 
 To unload module:
-`sudo rmmod hid_universal_pidff`
+`sudo rmmod hid_universal_pidff`'
 
 ## How to set up a base parameters?
 ### MOZA
