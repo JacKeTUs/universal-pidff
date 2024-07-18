@@ -18,7 +18,7 @@ ls -al /var/lib/dkms/mok*
 # Enroll keys into system
 sudo mokutil --import /var/lib/dkms/mok.pub
 ```
-You need to reboot your PC after that, you will be greated with blue screen dialog.
+You need to reboot your PC after that, you will be greeted with blue screen dialog.
 Choose "Enroll MOK", then "Continue" and "Yes". After that choose "Reboot system".
 
 Now DKMS should sign updated modules automatically as they updated.
@@ -34,7 +34,7 @@ openssl req -new -x509 -newkey rsa:2048 -keyout mok.key -outform DER -out mok.pu
 sudo mokutil --import mok.pub
 ```
 
-You need to reboot your PC after that, you will be greated with blue screen dialog
+You need to reboot your PC after that, you will be greeted with blue screen dialog
 Choose "Enroll MOK", enter your MOK password if exists, then "Continue", "Yes", and then reboot your system.
 
 After that you can manually sign your built kernel module like so (feel free to adjust paths to keys/certificate/modules):
