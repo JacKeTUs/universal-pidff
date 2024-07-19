@@ -11,12 +11,23 @@ For SecureBoot enabled system you have a choice:
 
 ### Using DKMS MOK key
 MOK private key and certificates are generated the first time DKMS is run. You just need to import it to your system.
+
+The location as well can be changed by setting the appropriate variables in /etc/dkms/framework.conf. For example, to allow usage of the system default Ubuntu update-secureboot-policy set the configuration file as follows:
 ```
-# Check if keys are present in default path
+mok_signing_key="/var/lib/shim-signed/mok/MOK.priv"
+mok_certificate="/var/lib/shim-signed/mok/MOK.der"
+```
+
+```
+# Find where keys are on your distro
 ls -al /var/lib/dkms/mok*
+# OR (on Ubuntu)
+ls -al /var/lib/shim-signed/mok/MOK*
 
 # Enroll keys into system
 sudo mokutil --import /var/lib/dkms/mok.pub
+# OR (on Ubuntu)
+sudo mokutil --import /var/lib/shim-signed/mok/MOK.der
 ```
 You need to reboot your PC after that, you will be greeted with blue screen dialog.
 Choose "Enroll MOK", then "Continue" and "Yes". After that choose "Reboot system".
