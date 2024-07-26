@@ -35,7 +35,7 @@ You can install it through AUR package, through DKMS or manually.
 On SecureBoot enabled systems you will need additional steps for load this driver into the system. See [Signing](docs/SIGNING.md#signing) section.
 
 ### AUR package
-There's an [AUR package](https://aur.archlinux.org/packages/universal-ff-dkms-git) for Arch Linux maintained by [@Lawstorant](https://github.com/Lawstorant).
+There's an [AUR package](https://aur.archlinux.org/packages/universal-pidff-dkms-git) for Arch Linux maintained by [@Lawstorant](https://github.com/Lawstorant).
 
 ### DKMS
 DKMS will install module into system, and will update it every time you update your kernel. Module will persist after reboots. It's the preferrable way to install it on the most distros.
