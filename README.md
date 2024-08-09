@@ -16,7 +16,7 @@ And that's basically it
 ## What devices are supported?
 ### Bases:
 1. MOZA R3, R5, R9, R12, R16, R21
-2. Cammus C5
+2. Cammus C5, C12
 3. ...
 
 ## What works?
