@@ -11,5 +11,6 @@
 
 #define USB_VENDOR_ID_CAMMUS        0x3416
 #define USB_DEVICE_ID_CAMMUS_C5     0x0301
+#define USB_DEVICE_ID_CAMMUS_C12    0x0302
 
 #endif
