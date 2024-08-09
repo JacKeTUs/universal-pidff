@@ -316,6 +316,14 @@ static void pidff_set_envelope_report(struct pidff_device *pidff,
 static int pidff_needs_set_envelope(struct ff_envelope *envelope,
 				    struct ff_envelope *old)
 {
+	if (!old) {
+		return envelope->attack_level != 0 ||
+		       envelope->fade_level != 0 ||
+		       envelope->attack_length != 0 ||
+		       envelope->fade_length != 0;
+
+	}
+
 	return envelope->attack_level != old->attack_level ||
 	       envelope->fade_level != old->fade_level ||
 	       envelope->attack_length != old->attack_length ||
@@ -411,8 +419,8 @@ static void pidff_set_periodic_report(struct pidff_device *pidff,
 	// Actually we just can use clamp macro
 	//  from include/linux/kernel.h#L59
 	// But for the debug purposes we're leaving it as is
-	pidff->set_periodic[PID_PERIOD].value[0] = 
-		pidff_clamp(effect->u.periodic.period, 
+	pidff->set_periodic[PID_PERIOD].value[0] =
+		pidff_clamp(effect->u.periodic.period,
 			pidff->set_periodic[PID_PERIOD].field);
 
 	hid_hw_request(pidff->hid, pidff->reports[PID_SET_PERIODIC],
@@ -655,9 +663,8 @@ static int pidff_upload_effect(struct input_dev *dev, struct ff_effect *effect,
 			pidff_set_effect_report(pidff, effect);
 		if (!old || pidff_needs_set_constant(effect, old))
 			pidff_set_constant_force_report(pidff, effect);
-		if (!old ||
-		    pidff_needs_set_envelope(&effect->u.constant.envelope,
-					&old->u.constant.envelope))
+		if (pidff_needs_set_envelope(&effect->u.constant.envelope,
+				old ? &old->u.periodic.envelope : NULL))
 			pidff_set_envelope_report(pidff,
 					&effect->u.constant.envelope);
 		break;
@@ -695,19 +702,8 @@ static int pidff_upload_effect(struct input_dev *dev, struct ff_effect *effect,
 		if (!old || pidff_needs_set_periodic(effect, old))
 			pidff_set_periodic_report(pidff, effect);
 
-		if (pidff->quirks & PIDFF_QUIRK_FIX_PERIODIC_ENVELOPE)
-		{
-			effect->u.periodic.envelope.attack_level =
-				effect->u.periodic.envelope.attack_level == 0
-				? 0x7fff : effect->u.periodic.envelope.attack_level;
-
-			effect->u.periodic.envelope.fade_level =
-				effect->u.periodic.envelope.fade_level == 0
-				? 0x7fff : effect->u.periodic.envelope.fade_level;
-		}
-		if (!old ||
-		    pidff_needs_set_envelope(&effect->u.periodic.envelope,
-					&old->u.periodic.envelope))
+		if (pidff_needs_set_envelope(&effect->u.periodic.envelope,
+					old ? &old->u.periodic.envelope : NULL))
 			pidff_set_envelope_report(pidff,
 					&effect->u.periodic.envelope);
 		break;
@@ -723,9 +719,9 @@ static int pidff_upload_effect(struct input_dev *dev, struct ff_effect *effect,
 			pidff_set_effect_report(pidff, effect);
 		if (!old || pidff_needs_set_ramp(effect, old))
 			pidff_set_ramp_force_report(pidff, effect);
-		if (!old ||
-		    pidff_needs_set_envelope(&effect->u.ramp.envelope,
-					&old->u.ramp.envelope))
+
+		if (pidff_needs_set_envelope(&effect->u.ramp.envelope,
+					old ? &old->u.periodic.envelope : NULL))
 			pidff_set_envelope_report(pidff,
 					&effect->u.ramp.envelope);
 		break;

@@ -5,27 +5,22 @@
 /* PIDFF Quirks to solve issues with certain devices */
 
 /*
- * Always set a value > 0 for PERIODIC envelope attack and fade level
-*/
-#define PIDFF_QUIRK_FIX_PERIODIC_ENVELOPE   BIT(0)
-
-/*
  * Ignore direction and always set 16384 (0x4000)
-*/
-#define PIDFF_QUIRK_FIX_WHEEL_DIRECTION     BIT(1)
+ */
+#define PIDFF_QUIRK_FIX_WHEEL_DIRECTION		BIT(0)
 
 /*
  * Skip initialization of 0xA7 descriptor (Delay effect)
  * Fixes VRS DFP, Cammus, old Simagic wheelbases
 */
-#define PIDFF_QUIRK_NO_DELAY_EFFECT         BIT(2)
+#define PIDFF_QUIRK_NO_DELAY_EFFECT         BIT(1)
 
 /*
  * Ignore PARAM_BLOCK_OFFSET (Axis number).
  * Most of the wheelbases have only one Axis anyway
  * Fixes VRS DFP
 */
-#define PIDFF_QUIRK_NO_PID_PARAM_BLOCK_OFFSET   BIT(3)
+#define PIDFF_QUIRK_NO_PID_PARAM_BLOCK_OFFSET   BIT(2)
 
 /*
  * Some wheelbases don't have some PID_CONTROL fields.
@@ -33,7 +28,7 @@
  *  that driver was strict about them. This quirk disables it.
  * Fixes VRS DFP
 */
-#define PIDFF_QUIRK_NO_STRICT_PID_CONTROL       BIT(4)
+#define PIDFF_QUIRK_NO_STRICT_PID_CONTROL       BIT(3)
 
 int hid_pidff_init_quirks(struct hid_device *hid, const struct hid_device_id *id);
 
