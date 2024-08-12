@@ -22,10 +22,10 @@ And that's basically it
 ## What works?
 1. FFB (all effects from device descriptor)
 2. All inputs (wheel axis, buttons)
-
+3. Telemetry for RPM Led, Speed and Gear LCD. (Cammus C5 Only, Needs [Monocoque](https://github.com/Spacefreak18/monocoque))
 
 ## What does not work?
-1. Telemetry functions (Shift lights, displays, SimHub, etc), mostly because telemetry works only with proprietary soft, which can't get access to shared memory chunks from games.
+1.~~Telemetry functions (Shift lights, displays, SimHub, etc), mostly because telemetry works only with proprietary soft, which can't get access to shared memory chunks from games.~~
 2. `Firmware Update` function. Use Windows PC or Windows VM at the moment.
 3. Setup through proprietary software. May require [some tweaking](#how-to-set-up-a-base-parameters))
 
