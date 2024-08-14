@@ -25,9 +25,9 @@ And that's basically it
 
 
 ## What does not work?
-1. Telemetry functions (Shift lights, displays, SimHub, etc), mostly because telemetry works only with proprietary soft, which can't get access to shared memory chunks from games.
+1. Telemetry functions. They are handeled by [Monocoque](https://github.com/Spacefreak18/monocoque)
 2. `Firmware Update` function. Use Windows PC or Windows VM at the moment.
-3. Setup through proprietary software. May require [some tweaking](#how-to-set-up-a-base-parameters))
+3. Setup through proprietary software. May require [some tweaking](#how-to-set-up-a-base-parameters)
 
 ## How to install this driver?
 You can install it through AUR package, through DKMS or manually.
@@ -60,6 +60,9 @@ Best for debugging purposes, where you need frequently change codebase/branches
 
 To unload module:
 `sudo rmmod hid_universal_pidff`
+
+### Testing
+To test the supported effects, use ffbplay from [ffbtools](https://github.com/berarma/ffbtools) and play the included [effect-test.ffb](./effect-test.ffb) file
 
 ## How to set up a base parameters?
 ### MOZA
