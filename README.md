@@ -71,7 +71,7 @@ To unload module:
 **[Android App](https://play.google.com/store/apps/details?id=com.cammus.simulator)**
 
 ## Known issues with the driver
-- Current limit of usable buttons is 138 (up from the Linux default of 80). Create an issue if you want this increased further.
+- Current limit of usable buttons is 160 (up from the Linux default of 80). Create an issue if you want this increased further.
 
 ## Known issues with the firmware
 You tell me please
