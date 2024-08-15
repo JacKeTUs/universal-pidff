@@ -4,6 +4,7 @@
  * First of all targeting steering wheels and wheelbases
  *
  * Copyright (c) 2024 Makarenko Oleg
+ * Copyright (c) 2024 Tomasz Pakuła
  */
 
 #include <linux/device.h>
@@ -137,5 +138,6 @@ static struct hid_driver universal_pidff = {
 module_hid_driver(universal_pidff);
 
 MODULE_AUTHOR("Oleg Makarenko <oleg@makarenk.ooo>");
+MODULE_AUTHOR("Tomasz Pakuła <tomasz.pakula.oficjalny@gmail.com>");
 MODULE_DESCRIPTION("Universal HID PIDFF Driver");
 MODULE_LICENSE("GPL");
