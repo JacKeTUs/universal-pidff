@@ -14,7 +14,6 @@
 #include "hid-ids.h"
 #include "hid-pidff.h"
 
-#define BTN_RANGE (BTN_9 - BTN_0 + 1)
 #define JOY_RANGE (BTN_DEAD - BTN_JOYSTICK + 1)
 
 static const struct hid_device_id pidff_wheel_devices[] = {
@@ -69,15 +68,12 @@ static int universal_pidff_input_mapping(struct hid_device *hdev, struct hid_inp
 		return 0;
 
 	int button = ((usage->hid - 1) & HID_USAGE);
-	int code = button + BTN_0;
-
-	// Detect the end of BTN_* range
-	if (code > BTN_9)
-		code = button + BTN_JOYSTICK - BTN_RANGE;
+	int code = button + BTN_JOYSTICK;
 
 	// Detect the end of JOYSTICK buttons range
+	// KEY_AUDIO_DESC = 0x270
 	if (code > BTN_DEAD)
-		code = button + KEY_MACRO1 - BTN_RANGE - JOY_RANGE;
+		code = button + KEY_NEXT_FAVORITE - JOY_RANGE;
 
 	// Map overflowing buttons to KEY_RESERVED for the upcoming new input event
 	// It will handle button presses differently and won't depend on defined
