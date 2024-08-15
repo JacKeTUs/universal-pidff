@@ -71,7 +71,7 @@ To unload module:
 **[Android App](https://play.google.com/store/apps/details?id=com.cammus.simulator)**
 
 ## Known issues with the driver
-- Buttons above 80 simply don't show up. This is a Linux limitation and we're trying to fix that in the upstream
+- Current limit of usable buttons is 138 (up from the Linux default of 80). Create an issue if you want this increased further.
 
 ## Known issues with the firmware
 You tell me please
