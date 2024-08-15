@@ -9,8 +9,12 @@
 #include <linux/device.h>
 #include <linux/hid.h>
 #include <linux/module.h>
+#include <linux/input-event-codes.h>
 #include "hid-ids.h"
 #include "hid-pidff.h"
+
+#define BTN_RANGE (BTN_9 - BTN_0 + 1)
+#define JOY_RANGE (BTN_DEAD - BTN_JOYSTICK + 1)
 
 static const struct hid_device_id pidff_wheel_devices[] = {
 	{ HID_USB_DEVICE(USB_VENDOR_ID_MOZA, USB_DEVICE_ID_MOZA_R3),
@@ -50,6 +54,33 @@ static u8 *universal_pidff_report_fixup(struct hid_device *hdev, __u8 *rdesc,
 			return moza_report_fixup(hdev, rdesc, rsize);
 		}
 		return rdesc;
+}
+
+
+static int universal_pidff_input_mapping(struct hid_device *hdev, struct hid_input *hi,
+		struct hid_field *field, struct hid_usage *usage,
+		unsigned long **bit, int *max)
+{
+	// Let the default behavior handle mapping if usage is not a button
+	if ((usage->hid & HID_USAGE_PAGE) != HID_UP_BUTTON)
+		return 0;
+
+	int code = ((usage->hid - 1) & HID_USAGE);
+	int new_code = code + BTN_0;
+
+	if (new_code > BTN_9)
+		new_code = code + BTN_JOYSTICK - BTN_RANGE;
+
+	if (new_code > BTN_DEAD)
+		new_code = code + KEY_MACRO1 - BTN_RANGE - JOY_RANGE;
+
+	// Map overflowing buttons to KEY_RESERVED for the upcomng new input usages
+	if (new_code > KEY_MAX)
+		new_code = KEY_RESERVED;
+
+	hid_map_usage(hi, usage, bit, max, EV_KEY, new_code);
+	hid_dbg(hdev, "Button %d: usage %d", code, new_code);
+	return 1;
 }
 
 
@@ -98,6 +129,7 @@ static int universal_pidff_input_configured(struct hid_device *hdev,
 static struct hid_driver universal_pidff = {
 	.name = "hid-universal-pidff",
 	.id_table = pidff_wheel_devices,
+	.input_mapping = universal_pidff_input_mapping,
 	.probe = universal_pidff_probe,
 	.input_configured = universal_pidff_input_configured,
 	.report_fixup = universal_pidff_report_fixup
