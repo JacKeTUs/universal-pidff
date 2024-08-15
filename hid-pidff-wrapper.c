@@ -121,12 +121,22 @@ err:
 static int universal_pidff_input_configured(struct hid_device *hdev,
 				struct hid_input *hidinput)
 {
-	// Remove fuzz and deadzone
+	// Remove fuzz and deadzone from the wheel axis
 	struct input_dev *input = hidinput->input;
 	input_set_abs_params(input, ABS_X,
 		input->absinfo[ABS_X].minimum, input->absinfo[ABS_X].maximum, 0, 0);
 
-	return 0;
+	// Decrease fuzz and deadzone on additional axes
+	// Default Linux values are 255 for fuzz and 4096 for flat (deadzone)
+	short axis;
+	for (axis = ABS_Y; axis <= ABS_BRAKE, axis++) {
+		if (!test_bit(input->absbit, axis))
+			continue;
+
+		input_set_abs_params(input, axis,
+			input->absinfo[axis].minimum,
+			input->absinfo[axis].maximum, 8, 16);
+	}
 }
 
 static struct hid_driver universal_pidff = {
