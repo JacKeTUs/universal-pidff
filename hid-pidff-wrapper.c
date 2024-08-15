@@ -94,14 +94,14 @@ static int universal_pidff_input_configured(struct hid_device *hdev,
 
 	// Decrease fuzz and deadzone on additional axes
 	// Default Linux values are 255 for fuzz and 4096 for flat (deadzone)
-	short i;
-	for (i = ABS_Y; i <= ABS_BRAKE, i++) {
-		if (!test_bit(input->absbit, i))
+	short axis;
+	for (axis = ABS_Y; axis <= ABS_BRAKE, axis++) {
+		if (!test_bit(input->absbit, axis))
 			continue;
 
-		input_set_abs_params(input, i,
-			input->absinfo[i].minimum,
-			input->absinfo[i].maximum, 8, 16);
+		input_set_abs_params(input, axis,
+			input->absinfo[axis].minimum,
+			input->absinfo[axis].maximum, 8, 16);
 	}
 }
 
