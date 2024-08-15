@@ -12,9 +12,6 @@
 #include "hid-ids.h"
 #include "hid-pidff.h"
 
-#define MOZA_ADDITIONAL_AXES	{ABS_Y, ABS_Z, ABS_RX, ABS_RY, ABS_RZ, ABS_THROTTLE, ABS_RUDDER}
-#define CAMMUS_ADDITIONAL_AXES	{}
-
 static const struct hid_device_id pidff_wheel_devices[] = {
 	{ HID_USB_DEVICE(USB_VENDOR_ID_MOZA, USB_DEVICE_ID_MOZA_R3),
 		.driver_data = PIDFF_QUIRK_FIX_WHEEL_DIRECTION },
@@ -97,36 +94,15 @@ static int universal_pidff_input_configured(struct hid_device *hdev,
 
 	// Decrease fuzz and deadzone on additional axes
 	// Default Linux values are 255 for fuzz and 4096 for flat (deadzone)
-	short *additional_axes;
-	short moza_axes[] = MOZA_ADDITIONAL_AXES;
-	short cammus_axes[] = CAMMUS_ADDITIONAL_AXES;
-	short axes_cnt = 0;
+	short i;
+	for (i = ABS_Y; i <= ABS_BRAKE, i++) {
+		if (!test_bit(input->absbit, i))
+			continue;
 
-	switch (hdev->vendor)
-	{
-	case USB_VENDOR_ID_MOZA:
-		hid_dbg(hdev, "Defuzzing MOZA wheelbase");
-		additional_axes = moza_axes;
-		axes_cnt = sizeof(moza_axes) / sizeof(moza_axes[0]);
-		break;
-
-	case USB_VENDOR_ID_CAMMUS:
-		hid_dbg(hdev, "Defuzzing CAMMUS wheelbase");
-		additional_axes = cammus_axes;
-		axes_cnt = sizeof(cammus_axes) / sizeof(cammus_axes[0]);
-		break;
-
-	default:
-		break;
+		input_set_abs_params(input, i,
+			input->absinfo[i].minimum,
+			input->absinfo[i].maximum, 8, 16);
 	}
-
-	// Perform defuzzing
-	for (short i = 0; i < axes_cnt; i++)
-		input_set_abs_params(input, additional_axes[i],
-			input->absinfo[additional_axes[i]].minimum,
-			input->absinfo[additional_axes[i]].maximum, 32, 32);
-
-	return 0;
 }
 
 static struct hid_driver universal_pidff = {
