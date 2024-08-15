@@ -57,7 +57,9 @@ static u8 *universal_pidff_report_fixup(struct hid_device *hdev, __u8 *rdesc,
 		return rdesc;
 }
 
-
+/*
+ * Map buttons manually to extend the default joystick buttn limit
+ */
 static int universal_pidff_input_mapping(struct hid_device *hdev, struct hid_input *hi,
 		struct hid_field *field, struct hid_usage *usage,
 		unsigned long **bit, int *max)
@@ -66,21 +68,25 @@ static int universal_pidff_input_mapping(struct hid_device *hdev, struct hid_inp
 	if ((usage->hid & HID_USAGE_PAGE) != HID_UP_BUTTON)
 		return 0;
 
-	int code = ((usage->hid - 1) & HID_USAGE);
-	int new_code = code + BTN_0;
+	int button = ((usage->hid - 1) & HID_USAGE);
+	int code = button + BTN_0;
 
-	if (new_code > BTN_9)
-		new_code = code + BTN_JOYSTICK - BTN_RANGE;
+	// Detect the end of BTN_* range
+	if (code > BTN_9)
+		code = button + BTN_JOYSTICK - BTN_RANGE;
 
-	if (new_code > BTN_DEAD)
-		new_code = code + KEY_MACRO1 - BTN_RANGE - JOY_RANGE;
+	// Detect the end of JOYSTICK buttons range
+	if (code > BTN_DEAD)
+		code = button + KEY_MACRO1 - BTN_RANGE - JOY_RANGE;
 
-	// Map overflowing buttons to KEY_RESERVED for the upcomng new input usages
-	if (new_code > KEY_MAX)
-		new_code = KEY_RESERVED;
+	// Map overflowing buttons to KEY_RESERVED for the upcoming new input event
+	// It will handle button presses differently and won't depend on defined
+	// ranges. KEY_RESERVED usage is needed for the button to not be ignored.
+	if (code > KEY_MAX)
+		code = KEY_RESERVED;
 
-	hid_map_usage(hi, usage, bit, max, EV_KEY, new_code);
-	hid_dbg(hdev, "Button %d: usage %d", code, new_code);
+	hid_map_usage(hi, usage, bit, max, EV_KEY, code);
+	hid_dbg(hdev, "Button %d: usage %d", button, code);
 	return 1;
 }
 
