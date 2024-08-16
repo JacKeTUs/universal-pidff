@@ -135,7 +135,7 @@ static int universal_pidff_input_configured(struct hid_device *hdev,
 
 		input_set_abs_params(input, axis,
 			input->absinfo[axis].minimum,
-			input->absinfo[axis].maximum, 8, 16);
+			input->absinfo[axis].maximum, 8, 0);
 	}
 }
 
