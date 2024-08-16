@@ -137,6 +137,8 @@ static int universal_pidff_input_configured(struct hid_device *hdev,
 			input->absinfo[axis].minimum,
 			input->absinfo[axis].maximum, 8, 0);
 	}
+
+	return 0;
 }
 
 static struct hid_driver universal_pidff = {
