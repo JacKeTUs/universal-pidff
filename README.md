@@ -16,7 +16,7 @@ And that's basically it
 ## What devices are supported?
 ### Bases:
 1. MOZA R3, R5, R9, R12, R16, R21
-2. Cammus C5
+2. Cammus C5, C12
 3. VRS DirectForce Pro
 4. ...
 
@@ -26,9 +26,9 @@ And that's basically it
 
 
 ## What does not work?
-1. Telemetry functions (Shift lights, displays, SimHub, etc), mostly because telemetry works only with proprietary soft, which can't get access to shared memory chunks from games.
+1. Telemetry functions. They are handeled by [Monocoque](https://github.com/Spacefreak18/monocoque)
 2. `Firmware Update` function. Use Windows PC or Windows VM at the moment.
-3. Setup through proprietary software. May require [some tweaking](#how-to-set-up-a-base-parameters))
+3. Setup through proprietary software. May require [some tweaking](#how-to-set-up-a-base-parameters)
 
 ## How to install this driver?
 You can install it through AUR package, through DKMS or manually.
@@ -62,7 +62,10 @@ Best for debugging purposes, where you need frequently change codebase/branches
 To unload module:
 `sudo rmmod hid_universal_pidff`
 
-## How to set up a wheelbase parameters (max rotation degree, max power, filters, etc)?
+### Testing
+To test the supported effects, use ffbplay from [ffbtools](https://github.com/berarma/ffbtools) and play the included [effect-test.ffb](./effect-test.ffb) file
+
+## How to set up a base parameters  (max rotation degree, max power, filters, etc)?
 ### MOZA
 **[Boxflat](https://github.com/Lawstorant/boxflat)** is a Linux Pit House alternative made by [@Lawstorant](https://github.com/Lawstorant)
 
@@ -99,8 +102,9 @@ Then you need to force VRS soft to use hidraw, not SDL, to find devices:
 
 
 ## Known issues with the driver
+
 ### MOZA
-- Buttons above 80 simply don't show up. This is a Linux limitation and we're trying to fix that in the upstream
+- Current limit of usable buttons is 160 (up from the Linux default of 80). Create an issue if you want this increased further.
 
 ## Known issues with the firmware
 You tell me please
