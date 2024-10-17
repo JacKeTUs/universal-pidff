@@ -77,28 +77,35 @@ To test the supported effects, use ffbplay from [ffbtools](https://github.com/be
 ### VRS DirectForce Pro
 You can do it through VRS with Wine. You need to tweak Wine prefix for them.
 
-That soft uses hidraw to set up a base. You need to create `udev` rule for allow access to hidraw device:
+That software uses hidraw to set up a base. You need to create `udev` rule for allow access to hidraw device:
 ```
+# VRS DFP
 echo 'KERNEL=="hidraw*", ATTRS{idVendor}=="0483", ATTRS{idProduct}=="a355", MODE="0666", TAG+="uaccess"' | sudo tee /etc/udev/rules.d/11-vrs.rules
+# VRS pedals
+echo 'KERNEL=="hidraw*", ATTRS{idVendor}=="0483", ATTRS{idProduct}=="a3be", MODE="0666", TAG+="uaccess"' | sudo tee /etc/udev/rules.d/11-vrs.rules
 
 udevadm control --reload-rules && udevadm trigger
 ```
 
-Then you need to force VRS soft to use hidraw, not SDL, to find devices:
+Then you need to force VRS software to use hidraw, not SDL, to find devices:
 1. Create new Wine prefix for them:
 
-      `mkdir ~/vrs-wine`
-2. Launch regedit in prefix:
+      `mkdir ~/.vrs-wine`
+1. Launch regedit in prefix:
 
-      `WINEPREFIX=$HOME/vrs-wine wine regedit`
-3. Create two keys in
+      `WINEPREFIX=$HOME/.vrs-wine wine regedit`
+1. Create two keys in
   `HKEY_LOCAL_MACHINE\System\CurrentControlSet\Services\winebus`:
 
     * `DisableInput` (DWORD) - set to `1`;
-    * `Enable SDL` (DWORD) - set to `0`; (yes, variable name contains  space)
-4. Now you can launch soft through that WINEPREFIX:
+    * `Enable SDL` (DWORD) - set to `0`; (yes, variable name contains space)
+1. Install important packages for VRS config tool to work:
+      `WINEPREFIX=$HOME/.vrs-wine winetricks win7`
+      `WINEPREFIX=$HOME/.vrs-wine winetricks dotnet48`
 
-    `WINEPREFIX=$HOME/vrs-wine wine VRS.exe` - launch your soft from installation directory.
+1. Now you can launch soft through that WINEPREFIX:
+
+    `WINEPREFIX=$HOME/.vrs-wine wine VRS.exe` - launch VRS software from installation directory.
 
 
 ## Known issues with the driver
