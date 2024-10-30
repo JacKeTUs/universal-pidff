@@ -18,7 +18,7 @@ And that's basically it
 1. MOZA R3, R5, R9, R12, R16, R21
 2. Cammus C5, C12
 3. VRS DirectForce Pro
-4. FFBeast Wheel
+4. FFBeast Wheel, Joystick, Rudder
 5. ...
 
 ## What works?

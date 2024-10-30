@@ -49,6 +49,8 @@ static const struct hid_device_id pidff_wheel_devices[] = {
 		.driver_data = PIDFF_QUIRK_NO_DELAY_EFFECT },
 	{ HID_USB_DEVICE(USB_VENDOR_ID_FFBEAST, USB_DEVICE_ID_FFBEAST_JOYSTICK),
 		.driver_data = PIDFF_QUIRK_NO_DELAY_EFFECT },
+	{ HID_USB_DEVICE(USB_VENDOR_ID_FFBEAST, USB_DEVICE_ID_FFBEAST_RUDDER),
+		.driver_data = PIDFF_QUIRK_NO_DELAY_EFFECT },
 	{ }
 };
 MODULE_DEVICE_TABLE(hid, pidff_wheel_devices);
