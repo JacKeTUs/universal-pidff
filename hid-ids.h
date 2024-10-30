@@ -10,10 +10,6 @@
 #define USB_DEVICE_ID_MOZA_R12      0x0006
 #define USB_DEVICE_ID_MOZA_R16_R21  0x0000
 
-// VRS DrivingForce Pro
-#define USB_VENDOR_ID_VRS           0x0483
-#define USB_DEVICE_ID_VRS_DFP       0xa355
-
 // Moza Racing FH5 mode
 #define USB_DEVICE_ID_MOZA_R3_FH5       0x0015
 #define USB_DEVICE_ID_MOZA_R5_FH5       0x0014
@@ -25,5 +21,9 @@
 #define USB_VENDOR_ID_CAMMUS        0x3416
 #define USB_DEVICE_ID_CAMMUS_C5     0x0301
 #define USB_DEVICE_ID_CAMMUS_C12    0x0302
+
+// VRS DrivingForce Pro
+#define USB_VENDOR_ID_VRS           0x0483
+#define USB_DEVICE_ID_VRS_DFP       0xa355
 
 #endif
