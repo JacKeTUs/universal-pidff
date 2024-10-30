@@ -7,7 +7,7 @@ That driver allows most DirectDrive wheelbases to initialize and work.
 Most of the DirectDrive wheelbases are basically DirectInput wheels, but with some caveats, which Windows allows, but pidff doesn't.
 In that repository - pidff driver with some changes, which allows most of the DirectDrive wheelbases to work.
 
-1. Added multiple quirks for better initialization rules for different wheelbases (MOZA, VRS, Cammus)
+1. Added multiple quirks for better initialization rules for different wheelbases (MOZA, VRS, Cammus, FFBeast)
 2. Fixes for infinite-length effects
 3. Fixes for out-of-bounds values (no more spam in kernel logs)
 
@@ -18,7 +18,8 @@ And that's basically it
 1. MOZA R3, R5, R9, R12, R16, R21
 2. Cammus C5, C12
 3. VRS DirectForce Pro
-4. ...
+4. FFBeast Wheel
+5. ...
 
 ## What works?
 1. FFB (all effects from device descriptor)
@@ -109,9 +110,7 @@ Then you need to force VRS software to use hidraw, not SDL, to find devices:
 
 
 ## Known issues with the driver
-
-### MOZA
-- Current limit of usable buttons is 160 (up from the Linux default of 80). Create an issue if you want this increased further.
+It's not upstreamed yet :D
 
 ## Known issues with the firmware
 You tell me please
