@@ -27,7 +27,8 @@
 #define USB_DEVICE_ID_VRS_DFP       0xa355
 
 // FFBeast
-#define USB_VENDOR_ID_FFBEAST       0x045b
-#define USB_DEVICE_ID_FFBEAST_WHEEL 0x59d7
+#define USB_VENDOR_ID_FFBEAST           0x045b
+#define USB_DEVICE_ID_FFBEAST_WHEEL     0x59d7
+#define USB_DEVICE_ID_FFBEAST_JOYSTICK  0x58f9
 
 #endif

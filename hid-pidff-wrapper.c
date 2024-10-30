@@ -47,6 +47,8 @@ static const struct hid_device_id pidff_wheel_devices[] = {
 			| PIDFF_QUIRK_NO_PID_PARAM_BLOCK_OFFSET },
 	{ HID_USB_DEVICE(USB_VENDOR_ID_FFBEAST, USB_DEVICE_ID_FFBEAST_WHEEL),
 		.driver_data = PIDFF_QUIRK_NO_DELAY_EFFECT },
+	{ HID_USB_DEVICE(USB_VENDOR_ID_FFBEAST, USB_DEVICE_ID_FFBEAST_JOYSTICK),
+		.driver_data = PIDFF_QUIRK_NO_DELAY_EFFECT },
 	{ }
 };
 MODULE_DEVICE_TABLE(hid, pidff_wheel_devices);
@@ -152,6 +154,13 @@ static int universal_pidff_input_configured(struct hid_device *hdev,
 		input_set_abs_params(input, axis,
 			input->absinfo[axis].minimum,
 			input->absinfo[axis].maximum, 8, 0);
+	}
+
+	// Override fuzz on Y axis for FFBeast joystick
+	if (hdev->vendor == USB_VENDOR_ID_FFBEAST && hdev->product == USB_DEVICE_ID_FFBEAST_JOYSTICK) {
+		input_set_abs_params(input, ABS_Y,
+			input->absinfo[axis].minimum,
+			input->absinfo[axis].maximum, 0, 0);
 	}
 
 	return 0;
