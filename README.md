@@ -7,7 +7,7 @@ That driver allows most DirectDrive wheelbases to initialize and work.
 Most of the DirectDrive wheelbases are basically DirectInput wheels, but with some caveats, which Windows allows, but pidff doesn't.
 In that repository - pidff driver with some changes, which allows most of the DirectDrive wheelbases to work.
 
-1. Added multiple quirks for better initialization rules for different wheelbases (MOZA, VRS, Cammus, FFBeast)
+1. Added multiple quirks for better initialization rules for different wheelbases
 2. Fixes for infinite-length effects
 3. Fixes for out-of-bounds values (no more spam in kernel logs)
 
@@ -110,7 +110,7 @@ Then you need to force VRS software to use hidraw, not SDL, to find devices:
 
 
 ## Known issues with the driver
-It's not upstreamed yet :D
+- Current limit of usable buttons is 160 (up from the Linux default of 80). Create an issue if you want this increased further.
 
 ## Known issues with the firmware
 You tell me please
