@@ -11,6 +11,7 @@
 #include <linux/hid.h>
 #include <linux/module.h>
 #include <linux/input-event-codes.h>
+#include <linux/version.h>
 #include "hid-ids.h"
 #include "hid-pidff.h"
 
@@ -52,24 +53,32 @@ static const struct hid_device_id pidff_wheel_devices[] = {
 MODULE_DEVICE_TABLE(hid, pidff_wheel_devices);
 
 
-static const u8 *moza_report_fixup(struct hid_device *hdev, __u8 *rdesc,
-				   unsigned int *rsize)
+static
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,12,0)
+const
+#endif
+u8 *moza_report_fixup(struct hid_device *hdev, __u8 *rdesc,
+		      unsigned int *rsize)
 {
 	// Fix data type on PID Device Control
-        if (rdesc[1002] == 0x91 && rdesc[1003] == 0x02) {
+	if (rdesc[1002] == 0x91 && rdesc[1003] == 0x02) {
 		rdesc[1003] = 0x00; // Fix header, it needs to be Array.
-        }
-        return rdesc;
+	}
+	return rdesc;
 }
 
 
-static const u8 *universal_pidff_report_fixup(struct hid_device *hdev, __u8 *rdesc,
-        				      unsigned int *rsize)
+static
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,12,0)
+const
+#endif
+u8 *universal_pidff_report_fixup(struct hid_device *hdev, __u8 *rdesc,
+        			 unsigned int *rsize)
 {
-		if (hdev->vendor == USB_VENDOR_ID_MOZA) {
-			return moza_report_fixup(hdev, rdesc, rsize);
-		}
-		return rdesc;
+	if (hdev->vendor == USB_VENDOR_ID_MOZA) {
+		return moza_report_fixup(hdev, rdesc, rsize);
+	}
+	return rdesc;
 }
 
 /*
