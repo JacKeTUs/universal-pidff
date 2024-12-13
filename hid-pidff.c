@@ -205,6 +205,7 @@ struct pidff_device {
 
 	int pid_id[PID_EFFECTS_MAX];
 	unsigned quirks;
+	bool no_delay;
 };
 
 /*
@@ -382,9 +383,8 @@ static void pidff_set_effect_report(struct pidff_device *pidff,
 	pidff->effect_direction->value[0] =
 		pidff_rescale(direction, 0xffff, pidff->effect_direction);
 
-	if (!(pidff->quirks & PIDFF_QUIRK_NO_DELAY_EFFECT)) {
+	if (!pidff->no_delay)
 		pidff->set_effect[PID_START_DELAY].value[0] = effect->replay.delay;
-	}
 
 	hid_hw_request(pidff->hid, pidff->reports[PID_SET_EFFECT],
 			HID_REQ_SET_REPORT);
@@ -456,9 +456,9 @@ static void pidff_set_condition_report(struct pidff_device *pidff,
 
 	if (pidff->quirks & PIDFF_QUIRK_NO_PID_PARAM_BLOCK_OFFSET)
 		max_axis = 1;
-	
+
 	for (i = 0; i < max_axis; i++) {
-		if (! (pidff->quirks & PIDFF_QUIRK_NO_PID_PARAM_BLOCK_OFFSET) ) 
+		if (! (pidff->quirks & PIDFF_QUIRK_NO_PID_PARAM_BLOCK_OFFSET) )
 			pidff->set_condition[PID_PARAM_BLOCK_OFFSET].value[0] = i;
 		pidff_set_signed(&pidff->set_condition[PID_CP_OFFSET],
 				 effect->u.condition[i].center);
@@ -824,9 +824,9 @@ static void pidff_autocenter(struct pidff_device *pidff, u16 magnitude)
 	pidff->set_effect[PID_TRIGGER_REPEAT_INT].value[0] = 0;
 	pidff_set(&pidff->set_effect[PID_GAIN], magnitude);
 	pidff->set_effect[PID_DIRECTION_ENABLE].value[0] = 1;
-	if (!(pidff->quirks & PIDFF_QUIRK_NO_DELAY_EFFECT)) {
+
+	if (!pidff->no_delay)
 		pidff->set_effect[PID_START_DELAY].value[0] = 0;
-	}
 
 	hid_hw_request(pidff->hid, pidff->reports[PID_SET_EFFECT],
 			HID_REQ_SET_REPORT);
@@ -873,11 +873,17 @@ static int pidff_find_fields(struct pidff_usage *usage, const u8 *table,
 			if (found)
 				break;
 		}
-		if (!found && strict) {
+		if (!found && table[k] == pidff_set_effect[PID_START_DELAY]) {
+			pr_debug("Delay field not found, but that's OK\n");
+			no_delay = true;
+		}
+		else if (!found && strict) {
 			pr_debug("failed to locate %d\n", k);
 			return -1;
 		}
 	}
+	if (no_delay)
+		return 2;
 	return 0;
 }
 
@@ -1011,10 +1017,6 @@ static int pidff_find_special_fields(struct pidff_device *pidff)
 {
 	hid_dbg(pidff->hid, "finding special fields\n");
 
-	int strict_pid_device_control = 1;
-
-	if (pidff->quirks & PIDFF_QUIRK_NO_STRICT_PID_CONTROL)
-		strict_pid_device_control = 0;
 	pidff->create_new_effect_type =
 		pidff_find_special_field(pidff->reports[PID_CREATE_NEW_EFFECT],
 					 0x25, 1);
@@ -1026,7 +1028,7 @@ static int pidff_find_special_fields(struct pidff_device *pidff)
 					 0x57, 0);
 	pidff->device_control =
 		pidff_find_special_field(pidff->reports[PID_DEVICE_CONTROL],
-					 0x96, strict_pid_device_control);
+					 0x96, pidff->quirks & PIDFF_QUIRK_NO_STRICT_PID_CONTROL ? 0 : 1);
 	pidff->block_load_status =
 		pidff_find_special_field(pidff->reports[PID_BLOCK_LOAD],
 					 0x8b, 1);
@@ -1157,24 +1159,18 @@ static int pidff_find_effects(struct pidff_device *pidff,
 static int pidff_init_fields(struct pidff_device *pidff, struct input_dev *dev)
 {
 	int envelope_ok = 0;
+	int status = 0;
 
-	if (pidff->quirks & PIDFF_QUIRK_NO_DELAY_EFFECT) {
-		hid_dbg(pidff->hid, "Find fields for set_effect without delay\n");
-		if (pidff_find_fields(pidff->set_effect,
-					pidff_set_effect_without_delay,
-					pidff->reports[PID_SET_EFFECT], \
-					sizeof(pidff_set_effect_without_delay), 1)) {
-			hid_err(pidff->hid, "unknown set_effect report layout\n");
-			return -ENODEV;
-		}
+	// Save info about the device not having the DELAY ffb field.
+	status = PIDFF_FIND_FIELDS(set_effect, PID_SET_EFFECT, 1);
+	if (status == 2) {
+		hid_dbg(pidff->hid, "setting no_delay field to TRUE\n");
+		pidff->no_delay = true;
 	}
-	else {
-		if (PIDFF_FIND_FIELDS(set_effect, PID_SET_EFFECT, 1)) {
-			hid_err(pidff->hid, "unknown set_effect report layout\n");
-			return -ENODEV;
-		}
+	else if (status) {
+		hid_err(pidff->hid, "unknown set_effect report layout\n");
+		return -ENODEV;
 	}
-
 
 	PIDFF_FIND_FIELDS(block_load, PID_BLOCK_LOAD, 0);
 	if (!pidff->block_load[PID_EFFECT_BLOCK_INDEX].value) {
@@ -1237,7 +1233,7 @@ static int pidff_init_fields(struct pidff_device *pidff, struct input_dev *dev)
 			clear_bit(FF_DAMPER, dev->ffbit);
 			clear_bit(FF_FRICTION, dev->ffbit);
 			clear_bit(FF_INERTIA, dev->ffbit);
-		}	
+		}
 	}
 	else if ((test_bit(FF_SPRING, dev->ffbit) ||
 	     test_bit(FF_DAMPER, dev->ffbit) ||

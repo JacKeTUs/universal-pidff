@@ -10,12 +10,6 @@
 #define PIDFF_QUIRK_FIX_WHEEL_DIRECTION		BIT(0)
 
 /*
- * Skip initialization of 0xA7 descriptor (Delay effect)
- * Fixes VRS DFP, Cammus, old Simagic wheelbases
-*/
-#define PIDFF_QUIRK_NO_DELAY_EFFECT         BIT(1)
-
-/*
  * Ignore PARAM_BLOCK_OFFSET (Axis number).
  * Most of the wheelbases have only one Axis anyway
  * Fixes VRS DFP
