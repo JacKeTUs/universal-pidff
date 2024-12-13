@@ -205,7 +205,7 @@ struct pidff_device {
 
 	int pid_id[PID_EFFECTS_MAX];
 	unsigned quirks;
-	bool no_delay;
+	bool missing_delay;
 };
 
 /*
@@ -383,7 +383,7 @@ static void pidff_set_effect_report(struct pidff_device *pidff,
 	pidff->effect_direction->value[0] =
 		pidff_rescale(direction, 0xffff, pidff->effect_direction);
 
-	if (!pidff->no_delay)
+	if (!pidff->missing_delay)
 		pidff->set_effect[PID_START_DELAY].value[0] = effect->replay.delay;
 
 	hid_hw_request(pidff->hid, pidff->reports[PID_SET_EFFECT],
@@ -825,7 +825,7 @@ static void pidff_autocenter(struct pidff_device *pidff, u16 magnitude)
 	pidff_set(&pidff->set_effect[PID_GAIN], magnitude);
 	pidff->set_effect[PID_DIRECTION_ENABLE].value[0] = 1;
 
-	if (!pidff->no_delay)
+	if (!pidff->missing_delay)
 		pidff->set_effect[PID_START_DELAY].value[0] = 0;
 
 	hid_hw_request(pidff->hid, pidff->reports[PID_SET_EFFECT],
@@ -848,7 +848,8 @@ static void pidff_set_autocenter(struct input_dev *dev, u16 magnitude)
 static int pidff_find_fields(struct pidff_usage *usage, const u8 *table,
 			     struct hid_report *report, int count, int strict)
 {
-	int i, j, k, found;
+	int i, j, k, found, missing_delay;
+	missing_delay = 0;
 
 	for (k = 0; k < count; k++) {
 		found = 0;
@@ -875,14 +876,14 @@ static int pidff_find_fields(struct pidff_usage *usage, const u8 *table,
 		}
 		if (!found && table[k] == pidff_set_effect[PID_START_DELAY]) {
 			pr_debug("Delay field not found, but that's OK\n");
-			no_delay = true;
+			missing_delay = true;
 		}
 		else if (!found && strict) {
 			pr_debug("failed to locate %d\n", k);
 			return -1;
 		}
 	}
-	if (no_delay)
+	if (missing_delay)
 		return 2;
 	return 0;
 }
@@ -1164,8 +1165,8 @@ static int pidff_init_fields(struct pidff_device *pidff, struct input_dev *dev)
 	// Save info about the device not having the DELAY ffb field.
 	status = PIDFF_FIND_FIELDS(set_effect, PID_SET_EFFECT, 1);
 	if (status == 2) {
-		hid_dbg(pidff->hid, "setting no_delay field to TRUE\n");
-		pidff->no_delay = true;
+		hid_dbg(pidff->hid, "setting missing_delay field to TRUE\n");
+		pidff->missing_delay = true;
 	}
 	else if (status) {
 		hid_err(pidff->hid, "unknown set_effect report layout\n");
