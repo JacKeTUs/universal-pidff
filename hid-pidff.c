@@ -848,8 +848,8 @@ static void pidff_set_autocenter(struct input_dev *dev, u16 magnitude)
 static int pidff_find_fields(struct pidff_usage *usage, const u8 *table,
 			     struct hid_report *report, int count, int strict)
 {
-	int i, j, k, found, missing_delay;
-	missing_delay = 0;
+	int i, j, k, found;
+	bool missing_delay = false;
 
 	for (k = 0; k < count; k++) {
 		found = 0;
@@ -884,7 +884,7 @@ static int pidff_find_fields(struct pidff_usage *usage, const u8 *table,
 		}
 	}
 	if (missing_delay)
-		return 2;
+		return 1;
 	return 0;
 }
 
@@ -1164,7 +1164,7 @@ static int pidff_init_fields(struct pidff_device *pidff, struct input_dev *dev)
 
 	// Save info about the device not having the DELAY ffb field.
 	status = PIDFF_FIND_FIELDS(set_effect, PID_SET_EFFECT, 1);
-	if (status == 2) {
+	if (status == 1) {
 		hid_dbg(pidff->hid, "setting missing_delay field to TRUE\n");
 		pidff->missing_delay = true;
 	}
