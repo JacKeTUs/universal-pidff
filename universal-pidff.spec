@@ -16,9 +16,6 @@ Universal Force Feedback (FFB) Driver for Moza, Cammus, VRS, and other devices.
 %prep
 %setup -n %{name}-%{version}
 
-# replace placeholders in source files
-# find . -type f \( -name 'dkms.conf' -o -name '*.c' \) -exec sed -i "s/#VERSION#/%{version}/g" {} +
-
 %build
 # empty build step for dkms
 
