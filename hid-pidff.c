@@ -1154,13 +1154,12 @@ static int pidff_init_fields(struct pidff_device *pidff, struct input_dev *dev)
 
 	// Save info about the device not having the DELAY ffb field.
 	status = PIDFF_FIND_FIELDS(set_effect, PID_SET_EFFECT, 1);
-	if (status == BIT(0)) {
-		hid_dbg(pidff->hid, "setting missing_delay field to TRUE\n");
-		pidff->missing_delay = true;
-	}
-	else if (status) {
+	if (status == -1) {
 		hid_err(pidff->hid, "unknown set_effect report layout\n");
 		return -ENODEV;
+	} else if (status == BIT(0)) {
+		hid_dbg(pidff->hid, "setting missing_delay field to TRUE\n");
+		pidff->missing_delay = true;
 	}
 
 	PIDFF_FIND_FIELDS(block_load, PID_BLOCK_LOAD, 0);
@@ -1213,15 +1212,15 @@ static int pidff_init_fields(struct pidff_device *pidff, struct input_dev *dev)
 	    test_bit(FF_INERTIA, dev->ffbit)) {
 		status = PIDFF_FIND_FIELDS(set_condition, PID_SET_CONDITION, 1);
 
-		if (status == BIT(1)) {
-			hid_dbg(pidff->hid, "setting missing_pbo field to TRUE\n");
-			pidff->missing_pbo = true;
-		} else if (status) {
+		if (status == -1) {
 			hid_warn(pidff->hid, "unknown condition effect layout\n");
 			clear_bit(FF_SPRING, dev->ffbit);
 			clear_bit(FF_DAMPER, dev->ffbit);
 			clear_bit(FF_FRICTION, dev->ffbit);
 			clear_bit(FF_INERTIA, dev->ffbit);
+		} else if (status == BIT(1)) {
+			hid_dbg(pidff->hid, "setting missing_pbo field to TRUE\n");
+			pidff->missing_pbo = true;
 		}
 	}
 
