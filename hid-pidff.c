@@ -31,7 +31,7 @@
  * SDL/Proton mess with this value as they try to do
  * some conversions to fix FFB for flight sticks
  */
-#define PIDFF_FIXED_DIRECTION	0x4000
+#define PIDFF_FIXED_WHEEL_DIRECTION	0x4000
 
 /* Report usage table used to put reports into an array */
 
@@ -73,10 +73,6 @@ static const u8 pidff_set_effect[] = {
 	0x22, 0x50, 0x52, 0x53, 0x54, 0x56, 0xa7
 };
 
-static const u8 pidff_set_effect_without_delay[] = {
-	0x22, 0x50, 0x52, 0x53, 0x54, 0x56
-};
-
 #define PID_ATTACK_LEVEL	1
 #define PID_ATTACK_TIME		2
 #define PID_FADE_LEVEL		3
@@ -92,10 +88,6 @@ static const u8 pidff_set_envelope[] = { 0x22, 0x5b, 0x5c, 0x5d, 0x5e };
 #define PID_DEAD_BAND		7
 static const u8 pidff_set_condition[] = {
 	0x22, 0x23, 0x60, 0x61, 0x62, 0x63, 0x64, 0x65
-};
-
-static const u8 pidff_set_condition_without_pbo[] = {
-	0x22, 0x60, 0x61, 0x62, 0x63, 0x64, 0x65
 };
 
 
@@ -206,6 +198,7 @@ struct pidff_device {
 	int pid_id[PID_EFFECTS_MAX];
 	unsigned quirks;
 	bool missing_delay;
+	bool missing_pbo;
 };
 
 /*
@@ -365,7 +358,7 @@ static void pidff_set_effect_report(struct pidff_device *pidff,
 	unsigned short direction = effect->direction;
 
 	if (pidff->quirks & PIDFF_QUIRK_FIX_WHEEL_DIRECTION)
-		direction = PIDFF_FIXED_DIRECTION;
+		direction = PIDFF_FIXED_WHEEL_DIRECTION;
 
 	pidff->set_effect[PID_EFFECT_BLOCK_INDEX].value[0] =
 		pidff->block_load[PID_EFFECT_BLOCK_INDEX].value[0];
@@ -446,20 +439,16 @@ static int pidff_needs_set_periodic(struct ff_effect *effect,
 static void pidff_set_condition_report(struct pidff_device *pidff,
 				       struct ff_effect *effect)
 {
-	int i;
-	// Later we should take axis number out of the device.
-	// Our driver must work with MOZA AB9 FFB Base
-	int max_axis = 2;
+	unsigned char i;
+	unsigned char max_axis = pidff->missing_pbo ? 1 : 2;
 
 	pidff->set_condition[PID_EFFECT_BLOCK_INDEX].value[0] =
 		pidff->block_load[PID_EFFECT_BLOCK_INDEX].value[0];
 
-	if (pidff->quirks & PIDFF_QUIRK_NO_PID_PARAM_BLOCK_OFFSET)
-		max_axis = 1;
-
 	for (i = 0; i < max_axis; i++) {
-		if (! (pidff->quirks & PIDFF_QUIRK_NO_PID_PARAM_BLOCK_OFFSET) )
+		if (!pidff->missing_pbo)
 			pidff->set_condition[PID_PARAM_BLOCK_OFFSET].value[0] = i;
+
 		pidff_set_signed(&pidff->set_condition[PID_CP_OFFSET],
 				 effect->u.condition[i].center);
 		pidff_set_signed(&pidff->set_condition[PID_POS_COEFFICIENT],
@@ -473,7 +462,7 @@ static void pidff_set_condition_report(struct pidff_device *pidff,
 		pidff_set(&pidff->set_condition[PID_DEAD_BAND],
 			  effect->u.condition[i].deadband);
 		hid_hw_request(pidff->hid, pidff->reports[PID_SET_CONDITION],
-				HID_REQ_SET_REPORT);
+			       HID_REQ_SET_REPORT);
 	}
 }
 
@@ -849,7 +838,7 @@ static int pidff_find_fields(struct pidff_usage *usage, const u8 *table,
 			     struct hid_report *report, int count, int strict)
 {
 	int i, j, k, found;
-	bool missing_delay = false;
+	int return_value = 0;
 
 	for (k = 0; k < count; k++) {
 		found = 0;
@@ -876,16 +865,18 @@ static int pidff_find_fields(struct pidff_usage *usage, const u8 *table,
 		}
 		if (!found && table[k] == pidff_set_effect[PID_START_DELAY]) {
 			pr_debug("Delay field not found, but that's OK\n");
-			missing_delay = true;
+			return_value |= BIT(0);
+		}
+		else if (!found && table[k] == pidff_set_condition[PID_PARAM_BLOCK_OFFSET]) {
+			pr_debug("PBO field not found, but that's OK\n");
+			return_value |= BIT(1);
 		}
 		else if (!found && strict) {
 			pr_debug("failed to locate %d\n", k);
 			return -1;
 		}
 	}
-	if (missing_delay)
-		return 1;
-	return 0;
+	return return_value;
 }
 
 /*
@@ -1029,7 +1020,7 @@ static int pidff_find_special_fields(struct pidff_device *pidff)
 					 0x57, 0);
 	pidff->device_control =
 		pidff_find_special_field(pidff->reports[PID_DEVICE_CONTROL],
-					 0x96, pidff->quirks & PIDFF_QUIRK_NO_STRICT_PID_CONTROL ? 0 : 1);
+					 0x96, 0);
 	pidff->block_load_status =
 		pidff_find_special_field(pidff->reports[PID_BLOCK_LOAD],
 					 0x8b, 1);
@@ -1159,12 +1150,11 @@ static int pidff_find_effects(struct pidff_device *pidff,
  */
 static int pidff_init_fields(struct pidff_device *pidff, struct input_dev *dev)
 {
-	int envelope_ok = 0;
 	int status = 0;
 
 	// Save info about the device not having the DELAY ffb field.
 	status = PIDFF_FIND_FIELDS(set_effect, PID_SET_EFFECT, 1);
-	if (status == 1) {
+	if (status == BIT(0)) {
 		hid_dbg(pidff->hid, "setting missing_delay field to TRUE\n");
 		pidff->missing_delay = true;
 	}
@@ -1189,13 +1179,10 @@ static int pidff_init_fields(struct pidff_device *pidff, struct input_dev *dev)
 		return -ENODEV;
 	}
 
-	if (!PIDFF_FIND_FIELDS(set_envelope, PID_SET_ENVELOPE, 1))
-		envelope_ok = 1;
-
 	if (pidff_find_special_fields(pidff) || pidff_find_effects(pidff, dev))
 		return -ENODEV;
 
-	if (!envelope_ok) {
+	if (PIDFF_FIND_FIELDS(set_envelope, PID_SET_ENVELOPE, 1)) {
 		if (test_and_clear_bit(FF_CONSTANT, dev->ffbit))
 			hid_warn(pidff->hid,
 				 "has constant effect but no envelope\n");
@@ -1220,33 +1207,24 @@ static int pidff_init_fields(struct pidff_device *pidff, struct input_dev *dev)
 		clear_bit(FF_RAMP, dev->ffbit);
 	}
 
-	if (pidff->quirks & PIDFF_QUIRK_NO_PID_PARAM_BLOCK_OFFSET) {
-		if ((test_bit(FF_SPRING, dev->ffbit) ||
-			test_bit(FF_DAMPER, dev->ffbit) ||
-			test_bit(FF_FRICTION, dev->ffbit) ||
-			test_bit(FF_INERTIA, dev->ffbit)) &&
-			pidff_find_fields(pidff->set_condition,
-						pidff_set_condition_without_pbo,
-						pidff->reports[PID_SET_CONDITION], \
-						sizeof(pidff_set_condition_without_pbo), 1)) {
-			hid_warn(pidff->hid, "unknown condition effect layout (w/o PBO)\n");
+	if (test_bit(FF_SPRING, dev->ffbit) ||
+	    test_bit(FF_DAMPER, dev->ffbit) ||
+	    test_bit(FF_FRICTION, dev->ffbit) ||
+	    test_bit(FF_INERTIA, dev->ffbit)) {
+		status = PIDFF_FIND_FIELDS(set_condition, PID_SET_CONDITION, 1);
+
+		if (status == BIT(1)) {
+			hid_dbg(pidff->hid, "setting missing_pbo field to TRUE\n");
+			pidff->missing_pbo = true;
+		} else if (status) {
+			hid_warn(pidff->hid, "unknown condition effect layout\n");
 			clear_bit(FF_SPRING, dev->ffbit);
 			clear_bit(FF_DAMPER, dev->ffbit);
 			clear_bit(FF_FRICTION, dev->ffbit);
 			clear_bit(FF_INERTIA, dev->ffbit);
 		}
 	}
-	else if ((test_bit(FF_SPRING, dev->ffbit) ||
-	     test_bit(FF_DAMPER, dev->ffbit) ||
-	     test_bit(FF_FRICTION, dev->ffbit) ||
-	     test_bit(FF_INERTIA, dev->ffbit)) &&
-	    PIDFF_FIND_FIELDS(set_condition, PID_SET_CONDITION, 1)) {
-		hid_warn(pidff->hid, "unknown condition effect layout\n");
-		clear_bit(FF_SPRING, dev->ffbit);
-		clear_bit(FF_DAMPER, dev->ffbit);
-		clear_bit(FF_FRICTION, dev->ffbit);
-		clear_bit(FF_INERTIA, dev->ffbit);
-	}
+
 
 	if (test_bit(FF_PERIODIC, dev->ffbit) &&
 	    PIDFF_FIND_FIELDS(set_periodic, PID_SET_PERIODIC, 1)) {
