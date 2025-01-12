@@ -316,13 +316,14 @@ static void pidff_set_envelope_report(struct pidff_device *pidff,
 static int pidff_needs_set_envelope(struct ff_envelope *envelope,
 				    struct ff_envelope *old)
 {
-	if (!old) {
-		return envelope->attack_level != 0 ||
-		       envelope->fade_level != 0 ||
-		       envelope->attack_length != 0 ||
-		       envelope->fade_length != 0;
+	bool needs_new_envelope;
+	needs_new_envelope = envelope->attack_level  != 0 ||
+		             envelope->fade_level    != 0 ||
+		             envelope->attack_length != 0 ||
+		             envelope->fade_length   != 0;
 
-	}
+	if (!needs_new_envelope || !old)
+		return needs_new_envelope;
 
 	return envelope->attack_level != old->attack_level ||
 	       envelope->fade_level != old->fade_level ||
@@ -456,9 +457,9 @@ static void pidff_set_condition_report(struct pidff_device *pidff,
 
 	if (pidff->quirks & PIDFF_QUIRK_NO_PID_PARAM_BLOCK_OFFSET)
 		max_axis = 1;
-	
+
 	for (i = 0; i < max_axis; i++) {
-		if (! (pidff->quirks & PIDFF_QUIRK_NO_PID_PARAM_BLOCK_OFFSET) ) 
+		if (! (pidff->quirks & PIDFF_QUIRK_NO_PID_PARAM_BLOCK_OFFSET) )
 			pidff->set_condition[PID_PARAM_BLOCK_OFFSET].value[0] = i;
 		pidff_set_signed(&pidff->set_condition[PID_CP_OFFSET],
 				 effect->u.condition[i].center);
@@ -664,7 +665,7 @@ static int pidff_upload_effect(struct input_dev *dev, struct ff_effect *effect,
 		if (!old || pidff_needs_set_constant(effect, old))
 			pidff_set_constant_force_report(pidff, effect);
 		if (pidff_needs_set_envelope(&effect->u.constant.envelope,
-				old ? &old->u.periodic.envelope : NULL))
+					     &old->u.periodic.envelope))
 			pidff_set_envelope_report(pidff,
 					&effect->u.constant.envelope);
 		break;
@@ -703,7 +704,7 @@ static int pidff_upload_effect(struct input_dev *dev, struct ff_effect *effect,
 			pidff_set_periodic_report(pidff, effect);
 
 		if (pidff_needs_set_envelope(&effect->u.periodic.envelope,
-					old ? &old->u.periodic.envelope : NULL))
+					     &old->u.periodic.envelope))
 			pidff_set_envelope_report(pidff,
 					&effect->u.periodic.envelope);
 		break;
@@ -721,7 +722,7 @@ static int pidff_upload_effect(struct input_dev *dev, struct ff_effect *effect,
 			pidff_set_ramp_force_report(pidff, effect);
 
 		if (pidff_needs_set_envelope(&effect->u.ramp.envelope,
-					old ? &old->u.periodic.envelope : NULL))
+					     &old->u.periodic.envelope))
 			pidff_set_envelope_report(pidff,
 					&effect->u.ramp.envelope);
 		break;
@@ -1237,7 +1238,7 @@ static int pidff_init_fields(struct pidff_device *pidff, struct input_dev *dev)
 			clear_bit(FF_DAMPER, dev->ffbit);
 			clear_bit(FF_FRICTION, dev->ffbit);
 			clear_bit(FF_INERTIA, dev->ffbit);
-		}	
+		}
 	}
 	else if ((test_bit(FF_SPRING, dev->ffbit) ||
 	     test_bit(FF_DAMPER, dev->ffbit) ||
