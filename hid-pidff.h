@@ -13,14 +13,14 @@
  * Skip initialization of 0xA7 descriptor (Delay effect)
  * Fixes VRS DFP, Cammus, old Simagic wheelbases
 */
-#define PIDFF_QUIRK_NO_DELAY_EFFECT         BIT(1)
+#define PIDFF_QUIRK_NO_DELAY_EFFECT		BIT(1)
 
 /*
  * Ignore PARAM_BLOCK_OFFSET (Axis number).
  * Most of the wheelbases have only one Axis anyway
  * Fixes VRS DFP
 */
-#define PIDFF_QUIRK_NO_PID_PARAM_BLOCK_OFFSET   BIT(2)
+#define PIDFF_QUIRK_NO_PID_PARAM_BLOCK_OFFSET	BIT(2)
 
 /*
  * Some wheelbases don't have some PID_CONTROL fields.
@@ -28,7 +28,15 @@
  *  that driver was strict about them. This quirk disables it.
  * Fixes VRS DFP
 */
-#define PIDFF_QUIRK_NO_STRICT_PID_CONTROL       BIT(3)
+#define PIDFF_QUIRK_NO_STRICT_PID_CONTROL	BIT(3)
+
+/*
+ * Some devices have all the periodic effects in their descriptors
+ * but only sine effect actually works properly.
+ * this forces every periodic effect to be created as SINE
+ * Fixes PXN (LITE STAR)
+*/
+#define PIDFF_QUIRK_PERIODIC_SINE_ONLY		BIT(4)
 
 int hid_pidff_init_quirks(struct hid_device *hid, const struct hid_device_id *id);
 
