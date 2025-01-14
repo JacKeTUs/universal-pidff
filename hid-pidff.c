@@ -1444,6 +1444,7 @@ int hid_pidff_init_quirks(struct hid_device *hid, const struct hid_device_id *id
 	ff->playback = pidff_playback;
 
 	hid_info(dev, "Force feedback for USB HID PID devices\n");
+	hid_dbg(dev, "Active pidff quirks: 0x%x", pidff->quirks);
 
 	hid_device_io_stop(hid);
 
