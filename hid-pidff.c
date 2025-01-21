@@ -1278,17 +1278,28 @@ static void pidff_reset(struct pidff_device *pidff)
 	int i = 0;
 
 	hid_dbg(hid, "%s: Resetting the device...", __func__);
-	pidff->device_control->value[0] = pidff->control_id[PID_RESET];
-	hid_dbg(hid, "%s: PID_RESET control_id: %02x", __func__, pidff->device_control->value[0]);
+
+	hid_dbg(hid, "%s: PID_RESET index is %02x", __func__, pidff->control_id[PID_RESET]);
+	if (pidff->device_control->flags & HID_MAIN_ITEM_VARIABLE) {
+		pidff->device_control->value[pidff->control_id[PID_RESET]-1] = pidff->device_control->logical_maximum;
+	} else {
+		pidff->device_control->value[0] = pidff->control_id[PID_RESET];
+	}
 	/* We reset twice as sometimes hid_wait_io isn't waiting long enough */
 	hid_hw_request(hid, pidff->reports[PID_DEVICE_CONTROL], HID_REQ_SET_REPORT);
 	hid_hw_wait(hid);
 	hid_hw_request(hid, pidff->reports[PID_DEVICE_CONTROL], HID_REQ_SET_REPORT);
 	hid_hw_wait(hid);
 
-	pidff->device_control->value[0] =
-		pidff->control_id[PID_ENABLE_ACTUATORS];
-	hid_dbg(hid, "%s: PID_ENABLE_ACTUATORS control_id: %02x", __func__, pidff->device_control->value[0]);
+	hid_dbg(hid, "%s: PID_ENABLE_ACTUATORS index is: %02x", __func__, pidff->control_id[PID_ENABLE_ACTUATORS]);
+	if (pidff->device_control->flags & HID_MAIN_ITEM_VARIABLE) {
+		pidff->device_control->value[pidff->control_id[PID_RESET]-1] = pidff->device_control->logical_minimum;
+		pidff->device_control->value[pidff->control_id[PID_ENABLE_ACTUATORS]-1] = pidff->device_control->logical_maximum;
+	}
+	else {
+		pidff->device_control->value[0] = pidff->control_id[PID_ENABLE_ACTUATORS];
+	}
+
 	hid_hw_request(hid, pidff->reports[PID_DEVICE_CONTROL], HID_REQ_SET_REPORT);
 	hid_hw_wait(hid);
 
