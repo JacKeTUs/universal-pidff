@@ -263,6 +263,31 @@ static void pidff_set(struct pidff_usage *usage, u16 value)
 	pr_debug("calculated from %d to %d\n", value, usage->value[0]);
 }
 
+/*
+ * Set actuators value
+ */
+static void set_actuators(struct pidff_device *pidff, short enable)
+{	
+	hid_dbg(pidff->hid, "%s: Setting actuators: %s\n", __func__, enable?"ON":"OFF");
+
+	hid_dbg(pidff->hid, "%s: PID_ENABLE_ACTUATORS index is: %02x", __func__, pidff->control_id[PID_ENABLE_ACTUATORS]);
+	hid_dbg(pidff->hid, "%s: PID_DISABLE_ACTUATORS index is: %02x", __func__, pidff->control_id[PID_DISABLE_ACTUATORS]);
+	if (pidff->device_control->flags & HID_MAIN_ITEM_VARIABLE) {
+		for (int i = 0; i < pidff->device_control->report_count; i++)
+		{
+			pidff->device_control->value[i] = 0;
+		}
+		pidff->device_control->value[pidff->control_id[PID_ENABLE_ACTUATORS]-1] = enable?1:0;
+		pidff->device_control->value[pidff->control_id[PID_DISABLE_ACTUATORS]-1] = enable?0:1;
+	}
+	else {
+		pidff->device_control->value[0] = pidff->control_id[enable?PID_ENABLE_ACTUATORS:PID_DISABLE_ACTUATORS];
+	}
+	
+	hid_hw_request(pidff->hid, pidff->reports[PID_DEVICE_CONTROL], HID_REQ_SET_REPORT);
+	hid_hw_wait(pidff->hid);
+}
+
 static void pidff_set_signed(struct pidff_usage *usage, s16 value)
 {
 	if (usage->field->logical_minimum < 0)
@@ -1274,30 +1299,7 @@ static int pidff_init_fields(struct pidff_device *pidff, struct input_dev *dev)
 }
 
 
-/*
- * Set actuators value
- */
-static void set_actuators(struct pidff_device *pidff, short enable)
-{	
-	hid_dbg(pidff->hid, "%s: Setting actuators: %s\n", __func__, enable?"ON":"OFF");
 
-	hid_dbg(pidff->hid, "%s: PID_ENABLE_ACTUATORS index is: %02x", __func__, pidff->control_id[PID_ENABLE_ACTUATORS]);
-	hid_dbg(pidff->hid, "%s: PID_DISABLE_ACTUATORS index is: %02x", __func__, pidff->control_id[PID_DISABLE_ACTUATORS]);
-	if (pidff->device_control->flags & HID_MAIN_ITEM_VARIABLE) {
-		for (int i = 0; i < pidff->device_control->report_count; i++)
-		{
-			pidff->device_control->value[i] = 0;
-		}
-		pidff->device_control->value[pidff->control_id[PID_ENABLE_ACTUATORS]-1] = enable?1:0;
-		pidff->device_control->value[pidff->control_id[PID_DISABLE_ACTUATORS]-1] = enable?0:1;
-	}
-	else {
-		pidff->device_control->value[0] = pidff->control_id[enable?PID_ENABLE_ACTUATORS:PID_DISABLE_ACTUATORS];
-	}
-	
-	hid_hw_request(pidff->hid, pidff->reports[PID_DEVICE_CONTROL], HID_REQ_SET_REPORT);
-	hid_hw_wait(pidff->hid);
-}
 
 
 /*
