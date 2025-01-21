@@ -647,7 +647,8 @@ static int pidff_upload_effect(struct input_dev *dev, struct ff_effect *effect,
 	int type_id;
 	int error;
 
-	
+	// Always enable actuators when effect is uploaded.
+	set_actuators(pidff, 1);
 
 	pidff->block_load[PID_EFFECT_BLOCK_INDEX].value[0] = 0;
 	if (old) {
