@@ -129,8 +129,9 @@ static const u8 pidff_pool[] = { 0x80, 0x83, 0xa9 };
 /* Special field key tables used to put special field keys into arrays */
 
 #define PID_ENABLE_ACTUATORS	0
-#define PID_RESET		1
-static const u8 pidff_device_control[] = { 0x97, 0x9a };
+#define PID_DISABLE_ACTUATORS	1
+#define PID_RESET		2
+static const u8 pidff_device_control[] = { 0x97, 0x98, 0x9a };
 
 #define PID_CONSTANT	0
 #define PID_RAMP	1
@@ -645,6 +646,8 @@ static int pidff_upload_effect(struct input_dev *dev, struct ff_effect *effect,
 	struct pidff_device *pidff = dev->ff->private;
 	int type_id;
 	int error;
+
+	
 
 	pidff->block_load[PID_EFFECT_BLOCK_INDEX].value[0] = 0;
 	if (old) {
@@ -1269,6 +1272,33 @@ static int pidff_init_fields(struct pidff_device *pidff, struct input_dev *dev)
 	return 0;
 }
 
+
+/*
+ * Set actuators value
+ */
+static void set_actuators(struct pidff_device *pidff, short enable)
+{	
+	hid_dbg(pidff->hid, "%s: Setting actuators: %s\n", __func__, enable?"ON":"OFF");
+
+	hid_dbg(pidff->hid, "%s: PID_ENABLE_ACTUATORS index is: %02x", __func__, pidff->control_id[PID_ENABLE_ACTUATORS]);
+	hid_dbg(pidff->hid, "%s: PID_DISABLE_ACTUATORS index is: %02x", __func__, pidff->control_id[PID_DISABLE_ACTUATORS]);
+	if (pidff->device_control->flags & HID_MAIN_ITEM_VARIABLE) {
+		for (int i = 0; i < pidff->device_control->report_count; i++)
+		{
+			pidff->device_control->value[i] = 0;
+		}
+		pidff->device_control->value[pidff->control_id[PID_ENABLE_ACTUATORS]-1] = enable?1:0;
+		pidff->device_control->value[pidff->control_id[PID_DISABLE_ACTUATORS]-1] = enable?0:1;
+	}
+	else {
+		pidff->device_control->value[0] = pidff->control_id[enable?PID_ENABLE_ACTUATORS:PID_DISABLE_ACTUATORS];
+	}
+	
+	hid_hw_request(pidff->hid, pidff->reports[PID_DEVICE_CONTROL], HID_REQ_SET_REPORT);
+	hid_hw_wait(pidff->hid);
+}
+
+
 /*
  * Reset the device
  */
@@ -1291,17 +1321,7 @@ static void pidff_reset(struct pidff_device *pidff)
 	hid_hw_request(hid, pidff->reports[PID_DEVICE_CONTROL], HID_REQ_SET_REPORT);
 	hid_hw_wait(hid);
 
-	hid_dbg(hid, "%s: PID_ENABLE_ACTUATORS index is: %02x", __func__, pidff->control_id[PID_ENABLE_ACTUATORS]);
-	if (pidff->device_control->flags & HID_MAIN_ITEM_VARIABLE) {
-		pidff->device_control->value[pidff->control_id[PID_RESET]-1] = pidff->device_control->logical_minimum;
-		pidff->device_control->value[pidff->control_id[PID_ENABLE_ACTUATORS]-1] = pidff->device_control->logical_maximum;
-	}
-	else {
-		pidff->device_control->value[0] = pidff->control_id[PID_ENABLE_ACTUATORS];
-	}
-
-	hid_hw_request(hid, pidff->reports[PID_DEVICE_CONTROL], HID_REQ_SET_REPORT);
-	hid_hw_wait(hid);
+	set_actuators(pidff, 1);
 
 	/* pool report is sometimes messed up, refetch it */
 	hid_hw_request(hid, pidff->reports[PID_POOL], HID_REQ_GET_REPORT);
