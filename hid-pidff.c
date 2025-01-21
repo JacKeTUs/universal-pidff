@@ -1311,7 +1311,7 @@ static void pidff_reset(struct pidff_device *pidff)
 
 	hid_dbg(hid, "%s: PID_RESET index is %02x", __func__, pidff->control_id[PID_RESET]);
 	if (pidff->device_control->flags & HID_MAIN_ITEM_VARIABLE) {
-		pidff->device_control->value[pidff->control_id[PID_RESET]-1] = pidff->device_control->logical_maximum;
+		pidff->device_control->value[pidff->control_id[PID_RESET]-1] = 1;
 	} else {
 		pidff->device_control->value[0] = pidff->control_id[PID_RESET];
 	}
