@@ -273,10 +273,8 @@ static void set_actuators(struct pidff_device *pidff, short enable)
 	hid_dbg(pidff->hid, "%s: PID_ENABLE_ACTUATORS index is: %02x", __func__, pidff->control_id[PID_ENABLE_ACTUATORS]);
 	hid_dbg(pidff->hid, "%s: PID_DISABLE_ACTUATORS index is: %02x", __func__, pidff->control_id[PID_DISABLE_ACTUATORS]);
 	if (pidff->device_control->flags & HID_MAIN_ITEM_VARIABLE) {
-		for (int i = 0; i < pidff->device_control->report_count; i++)
-		{
-			pidff->device_control->value[i] = 0;
-		}
+		// Do not reset the device. Just set the actuators.
+		pidff->device_control->value[pidff->control_id[PID_RESET]-1] = 0;
 		pidff->device_control->value[pidff->control_id[PID_ENABLE_ACTUATORS]-1] = enable?1:0;
 		pidff->device_control->value[pidff->control_id[PID_DISABLE_ACTUATORS]-1] = enable?0:1;
 	}
