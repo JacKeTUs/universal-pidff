@@ -131,7 +131,8 @@ static const u8 pidff_pool[] = { 0x80, 0x83, 0xa9 };
 #define PID_ENABLE_ACTUATORS	0
 #define PID_DISABLE_ACTUATORS	1
 #define PID_RESET		2
-static const u8 pidff_device_control[] = { 0x97, 0x98, 0x9a };
+#define PID_DEVICE_CONTINUE 3
+static const u8 pidff_device_control[] = { 0x97, 0x98, 0x9a, 0x9c };
 
 #define PID_CONSTANT	0
 #define PID_RAMP	1
@@ -264,6 +265,30 @@ static void pidff_set(struct pidff_usage *usage, u16 value)
 }
 
 /*
+ * Set device continue value
+ */
+static void set_device_continue(struct pidff_device *pidff, short enable)
+{	
+	hid_dbg(pidff->hid, "%s: Setting device continue: %s\n", __func__, enable?"ON":"OFF");
+
+	hid_dbg(pidff->hid, "%s: PID_DEVICE_CONTINUE index is: %02x", __func__, pidff->control_id[PID_DEVICE_CONTINUE]);
+	if (pidff->device_control->flags & HID_MAIN_ITEM_VARIABLE) {
+		// Do not reset the device. Just set CONTINUE
+		pidff->device_control->value[pidff->control_id[PID_RESET]-1] = 0;
+		// Do not change actuators. Just set CONTINUE
+		pidff->device_control->value[pidff->control_id[PID_ENABLE_ACTUATORS]-1] = 0;
+		pidff->device_control->value[pidff->control_id[PID_DISABLE_ACTUATORS]-1] = 0;
+		pidff->device_control->value[pidff->control_id[PID_DEVICE_CONTINUE]-1] = enable?1:0;
+	}
+	else {
+		pidff->device_control->value[0] = pidff->control_id[enable?PID_DEVICE_CONTINUE:0];
+	}
+	
+	hid_hw_request(pidff->hid, pidff->reports[PID_DEVICE_CONTROL], HID_REQ_SET_REPORT);
+	hid_hw_wait(pidff->hid);
+}
+
+/*
  * Set actuators value
  */
 static void set_actuators(struct pidff_device *pidff, short enable)
@@ -275,6 +300,7 @@ static void set_actuators(struct pidff_device *pidff, short enable)
 	if (pidff->device_control->flags & HID_MAIN_ITEM_VARIABLE) {
 		// Do not reset the device. Just set the actuators.
 		pidff->device_control->value[pidff->control_id[PID_RESET]-1] = 0;
+		pidff->device_control->value[pidff->control_id[PID_DEVICE_CONTINUE]-1] = 0;
 		pidff->device_control->value[pidff->control_id[PID_ENABLE_ACTUATORS]-1] = enable?1:0;
 		pidff->device_control->value[pidff->control_id[PID_DISABLE_ACTUATORS]-1] = enable?0:1;
 	}
@@ -455,10 +481,10 @@ static void pidff_set_periodic_report(struct pidff_device *pidff,
 	}
 	for (;unit_exponent > -3; unit_exponent--){
 		scaled_period /= 10;
-	}	
+	}
 			
 	if (scaled_period != effect->u.periodic.period) {
-		hid_dbg(pidff->hid, "scaled_period is %d\n", scaled_period);
+		hid_dbg(pidff->hid, "scaled period from %d to %d\n", effect->u.periodic.period, scaled_period);
 	}
 	// Actually we just can use clamp macro
 	//  from include/linux/kernel.h#L59
@@ -694,8 +720,11 @@ static int pidff_upload_effect(struct input_dev *dev, struct ff_effect *effect,
 	int type_id;
 	int error;
 
+	// Try to wake device
+	set_device_continue(pidff, 1);
 	// Always enable actuators when effect is uploaded.
 	set_actuators(pidff, 1);
+
 
 	pidff->block_load[PID_EFFECT_BLOCK_INDEX].value[0] = 0;
 	if (old) {
