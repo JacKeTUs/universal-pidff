@@ -914,7 +914,7 @@ static int pidff_upload_effect(struct input_dev *dev, struct ff_effect *effect,
 
 	pidff->effect_count++;
 	hid_dbg(pidff->hid, "Effects count: %d/%d\n", pidff->effect_count, 
-		pidff->pool[PID_SIMULTANEOUS_MAX].value[0]?pidff->pool[PID_SIMULTANEOUS_MAX].value[0]:PID_EFFECTS_MAX);
+		pidff->pool[PID_SIMULTANEOUS_MAX].value?pidff->pool[PID_SIMULTANEOUS_MAX].value[0]:PID_EFFECTS_MAX);
 	
 	return 0;
 }
