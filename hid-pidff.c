@@ -445,13 +445,18 @@ static void pidff_set_periodic_report(struct pidff_device *pidff,
 
 	// Scale time from ms to device units
 	__s32 unit_exponent = pidff->set_periodic[PID_PERIOD].field->unit_exponent;
-	u16 scaled_period = effect->u.periodic.period;
+	u32 scaled_period = effect->u.periodic.period;
 
 	hid_dbg(pidff->hid, "unit_exponent is %d\n", unit_exponent);
 	
 	// 3 is ms, linux hid default period
-	if (unit_exponent < -3) while (unit_exponent++ < -3) scaled_period *= 10;
-	if (unit_exponent > -3) while (unit_exponent-- > -3) scaled_period /= 10;
+	for (;unit_exponent < -3; unit_exponent++) {
+		scaled_period *= 10;
+	}
+	for (;unit_exponent > -3; unit_exponent--){
+		scaled_period /= 10;
+	}	
+			
 	if (scaled_period != effect->u.periodic.period) {
 		hid_dbg(pidff->hid, "scaled_period is %d\n", scaled_period);
 	}
