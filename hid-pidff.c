@@ -207,6 +207,7 @@ struct pidff_device {
 
 	int pid_id[PID_EFFECTS_MAX];
 	unsigned quirks;
+	unsigned effect_count;
 };
 
 /*
@@ -310,6 +311,34 @@ static void set_actuators(struct pidff_device *pidff, short enable)
 	
 	hid_hw_request(pidff->hid, pidff->reports[PID_DEVICE_CONTROL], HID_REQ_SET_REPORT);
 	hid_hw_wait(pidff->hid);
+}
+
+
+/*
+ * Device reset routine, with actuators enabling
+ */
+static void pidff_device_reset(struct pidff_device *pidff)
+{	
+	hid_dbg(pidff->hid, "%s: Nuclear option\n", __func__);
+
+	if (pidff->device_control->flags & HID_MAIN_ITEM_VARIABLE) {
+		pidff->device_control->value[pidff->control_id[PID_RESET]-1] = 1;
+		pidff->device_control->value[pidff->control_id[PID_DEVICE_CONTINUE]-1] = 0;
+		pidff->device_control->value[pidff->control_id[PID_ENABLE_ACTUATORS]-1] = 1;
+		pidff->device_control->value[pidff->control_id[PID_DISABLE_ACTUATORS]-1] = 0;
+		
+		hid_hw_request(pidff->hid, pidff->reports[PID_DEVICE_CONTROL], HID_REQ_SET_REPORT);
+		hid_hw_wait(pidff->hid);
+	}
+	else {
+		pidff->device_control->value[0] = pidff->control_id[PID_RESET];
+		hid_hw_request(pidff->hid, pidff->reports[PID_DEVICE_CONTROL], HID_REQ_SET_REPORT);
+		hid_hw_wait(pidff->hid);
+
+		pidff->device_control->value[0] = pidff->control_id[PID_ENABLE_ACTUATORS];
+		hid_hw_request(pidff->hid, pidff->reports[PID_DEVICE_CONTROL], HID_REQ_SET_REPORT);
+		hid_hw_wait(pidff->hid);
+	}
 }
 
 static void pidff_set_signed(struct pidff_usage *usage, s16 value)
@@ -707,6 +736,12 @@ static int pidff_erase_effect(struct input_dev *dev, int effect_id)
 	pidff_playback_pid(pidff, pid_id, 0);
 	pidff_erase_pid(pidff, pid_id);
 
+	if (pidff->effect_count > 0)
+		pidff->effect_count--;
+	
+	hid_dbg(pidff->hid, "Effects count: %d/%d\n", pidff->effect_count, 
+		pidff->pool[PID_SIMULTANEOUS_MAX].value[0]?pidff->pool[PID_SIMULTANEOUS_MAX].value[0]:PID_EFFECTS_MAX);
+
 	return 0;
 }
 
@@ -720,11 +755,17 @@ static int pidff_upload_effect(struct input_dev *dev, struct ff_effect *effect,
 	int type_id;
 	int error;
 
+	
 	// Try to wake device
-	set_device_continue(pidff, 1);
+	//set_device_continue(pidff, 1);
 	// Always enable actuators when effect is uploaded.
-	set_actuators(pidff, 1);
+	//set_actuators(pidff, 1);
 
+	// Go nuclear
+	if (pidff->effect_count == 0) {
+		hid_dbg(pidff->hid, "Effect count appears to be 0. Let's reset the device.\n");
+		pidff_device_reset(pidff);
+	}
 
 	pidff->block_load[PID_EFFECT_BLOCK_INDEX].value[0] = 0;
 	if (old) {
@@ -871,8 +912,10 @@ static int pidff_upload_effect(struct input_dev *dev, struct ff_effect *effect,
 		pidff->pid_id[effect->id] =
 		    pidff->block_load[PID_EFFECT_BLOCK_INDEX].value[0];
 
-	hid_dbg(pidff->hid, "uploaded\n");
-
+	pidff->effect_count++;
+	hid_dbg(pidff->hid, "Effects count: %d/%d\n", pidff->effect_count, 
+		pidff->pool[PID_SIMULTANEOUS_MAX].value[0]?pidff->pool[PID_SIMULTANEOUS_MAX].value[0]:PID_EFFECTS_MAX);
+	
 	return 0;
 }
 
