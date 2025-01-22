@@ -448,10 +448,13 @@ static void pidff_set_periodic_report(struct pidff_device *pidff,
 	u16 scaled_period = effect->u.periodic.period;
 
 	pr_debug("unit_exponent is %d\n", unit_exponent);
+	
 	// 3 is ms, linux hid default period
 	if (unit_exponent < -3) while (unit_exponent++ < -3) scaled_period *= 10;
 	if (unit_exponent > -3) while (unit_exponent-- > -3) scaled_period /= 10;
-
+	if (scaled_period != effect->u.periodic.period) {
+		pr_debug("scaled_period is %d\n", scaled_period);
+	}
 	// Actually we just can use clamp macro
 	//  from include/linux/kernel.h#L59
 	// But for the debug purposes we're leaving it as is for now
