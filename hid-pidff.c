@@ -490,26 +490,31 @@ static void pidff_set_condition_report(struct pidff_device *pidff,
 	// Our driver must work with MOZA AB9 FFB Base
 	int max_axis = 2;
 
+	// quick and dirty fix for NULL pointer deref.
+	int shift_index = 0;
+
 	pidff->set_condition[PID_EFFECT_BLOCK_INDEX].value[0] =
 		pidff->block_load[PID_EFFECT_BLOCK_INDEX].value[0];
 
-	if (pidff->quirks & PIDFF_QUIRK_NO_PID_PARAM_BLOCK_OFFSET)
+	if (pidff->quirks & PIDFF_QUIRK_NO_PID_PARAM_BLOCK_OFFSET) {
 		max_axis = 1;
+		shift_index = 1;
+	}
 
 	for (i = 0; i < max_axis; i++) {
 		if (! (pidff->quirks & PIDFF_QUIRK_NO_PID_PARAM_BLOCK_OFFSET) )
 			pidff->set_condition[PID_PARAM_BLOCK_OFFSET].value[0] = i;
-		pidff_set_signed(&pidff->set_condition[PID_CP_OFFSET],
+		pidff_set_signed(&pidff->set_condition[PID_CP_OFFSET-shift_index],
 				 effect->u.condition[i].center);
-		pidff_set_signed(&pidff->set_condition[PID_POS_COEFFICIENT],
+		pidff_set_signed(&pidff->set_condition[PID_POS_COEFFICIENT-shift_index],
 				 effect->u.condition[i].right_coeff);
-		pidff_set_signed(&pidff->set_condition[PID_NEG_COEFFICIENT],
+		pidff_set_signed(&pidff->set_condition[PID_NEG_COEFFICIENT-shift_index],
 				 effect->u.condition[i].left_coeff);
-		pidff_set(&pidff->set_condition[PID_POS_SATURATION],
+		pidff_set(&pidff->set_condition[PID_POS_SATURATION-shift_index],
 			  effect->u.condition[i].right_saturation);
-		pidff_set(&pidff->set_condition[PID_NEG_SATURATION],
+		pidff_set(&pidff->set_condition[PID_NEG_SATURATION-shift_index],
 			  effect->u.condition[i].left_saturation);
-		pidff_set(&pidff->set_condition[PID_DEAD_BAND],
+		pidff_set(&pidff->set_condition[PID_DEAD_BAND-shift_index],
 			  effect->u.condition[i].deadband);
 		hid_hw_request(pidff->hid, pidff->reports[PID_SET_CONDITION],
 				HID_REQ_SET_REPORT);
