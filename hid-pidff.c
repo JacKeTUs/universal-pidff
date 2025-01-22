@@ -441,11 +441,22 @@ static void pidff_set_periodic_report(struct pidff_device *pidff,
 	pidff_set_signed(&pidff->set_periodic[PID_OFFSET],
 			 effect->u.periodic.offset);
 	pidff_set(&pidff->set_periodic[PID_PHASE], effect->u.periodic.phase);
+	
+
+	// Scale time from ms to device units
+	__s32 unit_exponent = pidff->set_periodic[PID_PERIOD].field->unit_exponent;
+	u16 scaled_period = effect->u.periodic.period;
+
+	pr_debug("unit_exponent is %d\n", unit_exponent);
+	// 3 is ms, linux hid default period
+	if (unit_exponent < -3) while (unit_exponent++ < -3) scaled_period *= 10;
+	if (unit_exponent > -3) while (unit_exponent-- > -3) scaled_period /= 10;
+
 	// Actually we just can use clamp macro
 	//  from include/linux/kernel.h#L59
-	// But for the debug purposes we're leaving it as is
+	// But for the debug purposes we're leaving it as is for now
 	pidff->set_periodic[PID_PERIOD].value[0] =
-		pidff_clamp(effect->u.periodic.period,
+		pidff_clamp(scaled_period,
 			pidff->set_periodic[PID_PERIOD].field);
 
 	hid_hw_request(pidff->hid, pidff->reports[PID_SET_PERIODIC],
