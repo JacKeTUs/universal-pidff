@@ -762,10 +762,10 @@ static int pidff_upload_effect(struct input_dev *dev, struct ff_effect *effect,
 	//set_actuators(pidff, 1);
 
 	// Go nuclear
-	if (pidff->effect_count == 0) {
+	/*if (pidff->effect_count == 0) {
 		hid_dbg(pidff->hid, "Effect count appears to be 0. Let's reset the device.\n");
 		pidff_device_reset(pidff);
-	}
+	}*/
 
 	pidff->block_load[PID_EFFECT_BLOCK_INDEX].value[0] = 0;
 	if (old) {
