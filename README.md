@@ -2,6 +2,8 @@
 
 Linux PIDFF driver with useful patches for initialization of FFB devices. Primarily targeting Direct Drive wheelbases.
 
+Check out Linux Simracing community channel on [Matrix](https://matrix.to/#/#simracing:matrix.org)
+
 ## What's different between this and native pidff driver?
 That driver allows most DirectDrive wheelbases to initialize and work.
 Most of the DirectDrive wheelbases are basically DirectInput wheels, but with some caveats, which Windows allows, but pidff doesn't.
@@ -18,8 +20,10 @@ And that's basically it
 1. MOZA R3, R5, R9, R12, R16, R21
 2. Cammus C5, C12
 3. VRS DirectForce Pro
-4. FFBeast Wheel
-5. ...
+4. FFBeast Wheel, Joystick, Rudder
+5. PXN V10, V12, V12 Lite
+6. Lite Star GT978 FF
+7. ...
 
 ## What works?
 1. FFB (all effects from device descriptor)

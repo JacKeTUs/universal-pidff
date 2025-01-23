@@ -2,33 +2,36 @@
 #ifndef __HID_PIDFF_H
 #define __HID_PIDFF_H
 
-/* PIDFF Quirks to solve issues with certain devices */
+#include <linux/hid.h>
 
-/*
- * Ignore direction and always set 16384 (0x4000)
- */
-#define PIDFF_QUIRK_FIX_WHEEL_DIRECTION		BIT(0)
+/* PIDFF Quirks to solve issues with certain devices */
 
 /*
  * Skip initialization of 0xA7 descriptor (Delay effect)
  * Fixes VRS DFP, Cammus, old Simagic wheelbases
 */
-#define PIDFF_QUIRK_NO_DELAY_EFFECT		BIT(1)
+#define HID_PIDFF_QUIRK_MISSING_DELAY		BIT(0)
 
 /*
  * Ignore PARAM_BLOCK_OFFSET (Axis number).
  * Most of the wheelbases have only one Axis anyway
  * Fixes VRS DFP
 */
-#define PIDFF_QUIRK_NO_PID_PARAM_BLOCK_OFFSET	BIT(2)
+#define HID_PIDFF_QUIRK_MISSING_PBO		BIT(1)
 
 /*
- * Some wheelbases don't have some PID_CONTROL fields.
- * PID standard does not define fields that MUST exist, but
- *  that driver was strict about them. This quirk disables it.
+ * Some devices implement DEVICE_CONTROL as a bit mask variable
+ * instead of an array, which leads to a logical_minimum for this
+ * usage being possible different from 1. hid-pidff was strict
+ * about it. This quirk disables this check.
  * Fixes VRS DFP
 */
-#define PIDFF_QUIRK_NO_STRICT_PID_CONTROL	BIT(3)
+#define HID_PIDFF_QUIRK_PERMISSIVE_CONTROL	BIT(2)
+
+/*
+ * Ignore direction and always set 16384 (0x4000)
+ */
+#define HID_PIDFF_QUIRK_FIX_WHEEL_DIRECTION	BIT(3)
 
 /*
  * Some devices have all the periodic effects in their descriptors
@@ -36,8 +39,9 @@
  * this forces every periodic effect to be created as SINE
  * Fixes PXN (LITE STAR)
 */
-#define PIDFF_QUIRK_PERIODIC_SINE_ONLY		BIT(4)
+#define HID_PIDFF_QUIRK_PERIODIC_SINE_ONLY	BIT(4)
 
-int hid_pidff_init_quirks(struct hid_device *hid, const struct hid_device_id *id);
+int hid_pidff_init(struct hid_device *hid);
+int hid_pidff_init_with_quirks(struct hid_device *hid, u32 initial_quirks);
 
 #endif
