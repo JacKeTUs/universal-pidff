@@ -1,120 +1,46 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * HID PIDFF wrapper
- * First of all targeting steering wheels and wheelbases
+ * HID UNIVERSAL PIDFF
+ * hid-pidff wrapper for PID-enabled devices
+ * Handles device reports, quirks and extends usable button range
  *
- * Copyright (c) 2024 Makarenko Oleg
- * Copyright (c) 2024 Tomasz Pakuła
+ * Copyright (c) 2024, 2025 Makarenko Oleg
+ * Copyright (c) 2024, 2025 Tomasz Pakuła
  */
 
 #include <linux/device.h>
 #include <linux/hid.h>
 #include <linux/module.h>
 #include <linux/input-event-codes.h>
-#include <linux/version.h>
 #include "hid-ids.h"
 #include "hid-pidff.h"
 
 #define JOY_RANGE (BTN_DEAD - BTN_JOYSTICK + 1)
 
-static const struct hid_device_id pidff_wheel_devices[] = {
-	{ HID_USB_DEVICE(USB_VENDOR_ID_MOZA, USB_DEVICE_ID_MOZA_R3),
-		.driver_data = PIDFF_QUIRK_FIX_WHEEL_DIRECTION },
-	{ HID_USB_DEVICE(USB_VENDOR_ID_MOZA, USB_DEVICE_ID_MOZA_R5),
-		.driver_data = PIDFF_QUIRK_FIX_WHEEL_DIRECTION },
-	{ HID_USB_DEVICE(USB_VENDOR_ID_MOZA, USB_DEVICE_ID_MOZA_R9),
-		.driver_data = PIDFF_QUIRK_FIX_WHEEL_DIRECTION },
-	{ HID_USB_DEVICE(USB_VENDOR_ID_MOZA, USB_DEVICE_ID_MOZA_R12),
-		.driver_data = PIDFF_QUIRK_FIX_WHEEL_DIRECTION },
-	{ HID_USB_DEVICE(USB_VENDOR_ID_MOZA, USB_DEVICE_ID_MOZA_R16_R21),
-		.driver_data = PIDFF_QUIRK_FIX_WHEEL_DIRECTION },
-	{ HID_USB_DEVICE(USB_VENDOR_ID_MOZA, USB_DEVICE_ID_MOZA_R3_FH5),
-		.driver_data = PIDFF_QUIRK_FIX_WHEEL_DIRECTION },
-	{ HID_USB_DEVICE(USB_VENDOR_ID_MOZA, USB_DEVICE_ID_MOZA_R5_FH5),
-		.driver_data = PIDFF_QUIRK_FIX_WHEEL_DIRECTION },
-	{ HID_USB_DEVICE(USB_VENDOR_ID_MOZA, USB_DEVICE_ID_MOZA_R9_FH5),
-		.driver_data = PIDFF_QUIRK_FIX_WHEEL_DIRECTION },
-	{ HID_USB_DEVICE(USB_VENDOR_ID_MOZA, USB_DEVICE_ID_MOZA_R12_FH5),
-		.driver_data = PIDFF_QUIRK_FIX_WHEEL_DIRECTION },
-	{ HID_USB_DEVICE(USB_VENDOR_ID_MOZA, USB_DEVICE_ID_MOZA_R16_R21_FH5),
-		.driver_data = PIDFF_QUIRK_FIX_WHEEL_DIRECTION },
-	{ HID_USB_DEVICE(USB_VENDOR_ID_CAMMUS, USB_DEVICE_ID_CAMMUS_C5),
-		.driver_data = PIDFF_QUIRK_NO_DELAY_EFFECT },
-	{ HID_USB_DEVICE(USB_VENDOR_ID_CAMMUS, USB_DEVICE_ID_CAMMUS_C12),
-		.driver_data = PIDFF_QUIRK_NO_DELAY_EFFECT },
-	{ HID_USB_DEVICE(USB_VENDOR_ID_VRS, USB_DEVICE_ID_VRS_DFP),
-		.driver_data = PIDFF_QUIRK_NO_DELAY_EFFECT
-			| PIDFF_QUIRK_NO_STRICT_PID_CONTROL
-			| PIDFF_QUIRK_NO_PID_PARAM_BLOCK_OFFSET },
-	{ HID_USB_DEVICE(USB_VENDOR_ID_FFBEAST, USB_DEVICE_ID_FFBEAST_WHEEL),
-		.driver_data = PIDFF_QUIRK_NO_DELAY_EFFECT },
-	{ HID_USB_DEVICE(USB_VENDOR_ID_LITE_STAR, USB_DEVICE_ID_PXN_V10),
-		.driver_data = PIDFF_QUIRK_NO_DELAY_EFFECT |
-			       PIDFF_QUIRK_PERIODIC_SINE_ONLY },
-	{ HID_USB_DEVICE(USB_VENDOR_ID_LITE_STAR, USB_DEVICE_ID_PXN_V12),
-		.driver_data = PIDFF_QUIRK_NO_DELAY_EFFECT |
-			       PIDFF_QUIRK_PERIODIC_SINE_ONLY },
-	{ HID_USB_DEVICE(USB_VENDOR_ID_LITE_STAR, USB_DEVICE_ID_PXN_V12_LITE),
-		.driver_data = PIDFF_QUIRK_NO_DELAY_EFFECT |
-			       PIDFF_QUIRK_PERIODIC_SINE_ONLY },
-	{ HID_USB_DEVICE(USB_VENDOR_ID_LITE_STAR, USB_DEVICE_ID_PXN_V12_LITE_2),
-		.driver_data = PIDFF_QUIRK_NO_DELAY_EFFECT |
-			       PIDFF_QUIRK_PERIODIC_SINE_ONLY },
-	{ }
-};
-MODULE_DEVICE_TABLE(hid, pidff_wheel_devices);
-
-
-static
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,12,0)
-const
-#endif
-u8 *moza_report_fixup(struct hid_device *hdev, __u8 *rdesc,
-		      unsigned int *rsize)
-{
-	// Fix data type on PID Device Control
-	if (rdesc[1002] == 0x91 && rdesc[1003] == 0x02) {
-		rdesc[1003] = 0x00; // Fix header, it needs to be Array.
-	}
-	return rdesc;
-}
-
-
-static
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(6,12,0)
-const
-#endif
-u8 *universal_pidff_report_fixup(struct hid_device *hdev, __u8 *rdesc,
-        			 unsigned int *rsize)
-{
-	if (hdev->vendor == USB_VENDOR_ID_MOZA) {
-		return moza_report_fixup(hdev, rdesc, rsize);
-	}
-	return rdesc;
-}
-
 /*
- * Map buttons manually to extend the default joystick buttn limit
+ * Map buttons manually to extend the default joystick button limit
  */
-static int universal_pidff_input_mapping(struct hid_device *hdev, struct hid_input *hi,
-		struct hid_field *field, struct hid_usage *usage,
-		unsigned long **bit, int *max)
+static int universal_pidff_input_mapping(struct hid_device *hdev,
+	struct hid_input *hi, struct hid_field *field, struct hid_usage *usage,
+	unsigned long **bit, int *max)
 {
-	// Let the default behavior handle mapping if usage is not a button
 	if ((usage->hid & HID_USAGE_PAGE) != HID_UP_BUTTON)
+		return 0;
+
+	if (field->application != HID_GD_JOYSTICK)
 		return 0;
 
 	int button = ((usage->hid - 1) & HID_USAGE);
 	int code = button + BTN_JOYSTICK;
 
-	// Detect the end of JOYSTICK buttons range
-	// KEY_NEXT_FAVORITE = 0x270
+	/* Detect the end of JOYSTICK buttons range */
 	if (code > BTN_DEAD)
 		code = button + KEY_NEXT_FAVORITE - JOY_RANGE;
 
-	// Map overflowing buttons to KEY_RESERVED for the upcoming new input event
-	// It will handle button presses differently and won't depend on defined
-	// ranges. KEY_RESERVED usage is needed for the button to not be ignored.
+	/*
+	 * Map overflowing buttons to KEY_RESERVED to not ignore
+	 * them and let them still trigger MSC_SCAN
+	 */
 	if (code > KEY_MAX)
 		code = KEY_RESERVED;
 
@@ -131,64 +57,143 @@ static int universal_pidff_input_mapping(struct hid_device *hdev, struct hid_inp
 static int universal_pidff_probe(struct hid_device *hdev,
 				 const struct hid_device_id *id)
 {
-	int ret;
-	ret = hid_parse(hdev);
-	if (ret) {
-		hid_err(hdev, "parse failed\n");
+	int i, error;
+	error = hid_parse(hdev);
+	if (error) {
+		hid_err(hdev, "HID parse failed\n");
 		goto err;
 	}
 
-	ret = hid_hw_start(hdev, HID_CONNECT_DEFAULT & ~HID_CONNECT_FF);
-	if (ret) {
-		hid_err(hdev, "hw start failed\n");
+	error = hid_hw_start(hdev, HID_CONNECT_DEFAULT & ~HID_CONNECT_FF);
+	if (error) {
+		hid_err(hdev, "HID hw start failed\n");
 		goto err;
 	}
 
-	ret = hid_pidff_init_quirks(hdev, id);
-	if (ret) {
-		hid_warn(hdev, "Force feedback is not supported\n");
+	/* Check if device contains PID usage page */
+	error = 1;
+	for (i = 0; i < hdev->collection_size; i++)
+		if ((hdev->collection[i].usage & HID_USAGE_PAGE) == HID_UP_PID) {
+			error = 0;
+			hid_dbg(hdev, "PID usage page found\n");
+			break;
+		}
+
+	/*
+	 * Do not fail as this might be the second "device"
+	 * just for additional buttons/axes. Exit cleanly if force
+	 * feedback usage page wasn't found (included devices were
+	 * tested and confirmed to be USB PID after all).
+	 */
+	if (error) {
+		hid_dbg(hdev, "PID usage page not found in the descriptor\n");
+		return 0;
+	}
+
+	/* Check if HID_PID support is enabled */
+	int (*init_function)(struct hid_device *, __u32);
+	init_function = hid_pidff_init_with_quirks;
+
+	if (!init_function) {
+		hid_warn(hdev, "HID_PID support not enabled!\n");
+		return 0;
+	}
+
+	error = init_function(hdev, id->driver_data);
+	if (error) {
+		hid_warn(hdev, "Error initialising force feedback\n");
 		goto err;
 	}
+
+	hid_info(hdev, "Universal pidff driver loaded sucesfully!");
 
 	return 0;
 err:
-	return ret;
+	return error;
 }
 
 static int universal_pidff_input_configured(struct hid_device *hdev,
 					    struct hid_input *hidinput)
 {
-	// Remove fuzz and deadzone from the wheel axis
-	struct input_dev *input = hidinput->input;
-	input_set_abs_params(input, ABS_X,
-		input->absinfo[ABS_X].minimum, input->absinfo[ABS_X].maximum, 0, 0);
-
-	// Decrease fuzz and deadzone on additional axes
-	// Default Linux values are 255 for fuzz and 4096 for flat (deadzone)
 	int axis;
-	for (axis = ABS_Y; axis <= ABS_BRAKE; axis++) {
+	struct input_dev *input = hidinput->input;
+
+	if (!input->absinfo)
+		return 0;
+
+	/* Decrease fuzz and deadzone on available axes */
+	for (axis = ABS_X; axis <= ABS_BRAKE; axis++) {
 		if (!test_bit(axis, input->absbit))
 			continue;
 
 		input_set_abs_params(input, axis,
 			input->absinfo[axis].minimum,
-			input->absinfo[axis].maximum, 8, 0);
+			input->absinfo[axis].maximum,
+			axis == ABS_X ? 0 : 8, 0);
 	}
+
+	/* Remove fuzz and deadzone from the second joystick axis */
+	if (hdev->vendor == USB_VENDOR_ID_FFBEAST &&
+	    hdev->product == USB_DEVICE_ID_FFBEAST_JOYSTICK)
+		input_set_abs_params(input, ABS_Y,
+			input->absinfo[ABS_Y].minimum,
+			input->absinfo[ABS_Y].maximum, 0, 0);
 
 	return 0;
 }
 
+static const struct hid_device_id universal_pidff_devices[] = {
+	{ HID_USB_DEVICE(USB_VENDOR_ID_MOZA, USB_DEVICE_ID_MOZA_R3),
+		.driver_data = HID_PIDFF_QUIRK_FIX_WHEEL_DIRECTION },
+	{ HID_USB_DEVICE(USB_VENDOR_ID_MOZA, USB_DEVICE_ID_MOZA_R3_2),
+		.driver_data = HID_PIDFF_QUIRK_FIX_WHEEL_DIRECTION },
+	{ HID_USB_DEVICE(USB_VENDOR_ID_MOZA, USB_DEVICE_ID_MOZA_R5),
+		.driver_data = HID_PIDFF_QUIRK_FIX_WHEEL_DIRECTION },
+	{ HID_USB_DEVICE(USB_VENDOR_ID_MOZA, USB_DEVICE_ID_MOZA_R5_2),
+		.driver_data = HID_PIDFF_QUIRK_FIX_WHEEL_DIRECTION },
+	{ HID_USB_DEVICE(USB_VENDOR_ID_MOZA, USB_DEVICE_ID_MOZA_R9),
+		.driver_data = HID_PIDFF_QUIRK_FIX_WHEEL_DIRECTION },
+	{ HID_USB_DEVICE(USB_VENDOR_ID_MOZA, USB_DEVICE_ID_MOZA_R9_2),
+		.driver_data = HID_PIDFF_QUIRK_FIX_WHEEL_DIRECTION },
+	{ HID_USB_DEVICE(USB_VENDOR_ID_MOZA, USB_DEVICE_ID_MOZA_R12),
+		.driver_data = HID_PIDFF_QUIRK_FIX_WHEEL_DIRECTION },
+	{ HID_USB_DEVICE(USB_VENDOR_ID_MOZA, USB_DEVICE_ID_MOZA_R12_2),
+		.driver_data = HID_PIDFF_QUIRK_FIX_WHEEL_DIRECTION },
+	{ HID_USB_DEVICE(USB_VENDOR_ID_MOZA, USB_DEVICE_ID_MOZA_R16_R21),
+		.driver_data = HID_PIDFF_QUIRK_FIX_WHEEL_DIRECTION },
+	{ HID_USB_DEVICE(USB_VENDOR_ID_MOZA, USB_DEVICE_ID_MOZA_R16_R21_2),
+		.driver_data = HID_PIDFF_QUIRK_FIX_WHEEL_DIRECTION },
+	{ HID_USB_DEVICE(USB_VENDOR_ID_CAMMUS, USB_DEVICE_ID_CAMMUS_C5) },
+	{ HID_USB_DEVICE(USB_VENDOR_ID_CAMMUS, USB_DEVICE_ID_CAMMUS_C12) },
+	{ HID_USB_DEVICE(USB_VENDOR_ID_VRS, USB_DEVICE_ID_VRS_DFP),
+		.driver_data = HID_PIDFF_QUIRK_PERMISSIVE_CONTROL },
+	{ HID_USB_DEVICE(USB_VENDOR_ID_FFBEAST, USB_DEVICE_ID_FFBEAST_JOYSTICK), },
+	{ HID_USB_DEVICE(USB_VENDOR_ID_FFBEAST, USB_DEVICE_ID_FFBEAST_RUDDER), },
+	{ HID_USB_DEVICE(USB_VENDOR_ID_FFBEAST, USB_DEVICE_ID_FFBEAST_WHEEL) },
+	{ HID_USB_DEVICE(USB_VENDOR_ID_LITE_STAR, USB_DEVICE_ID_PXN_V10),
+		.driver_data = HID_PIDFF_QUIRK_PERIODIC_SINE_ONLY },
+	{ HID_USB_DEVICE(USB_VENDOR_ID_LITE_STAR, USB_DEVICE_ID_PXN_V12),
+		.driver_data = HID_PIDFF_QUIRK_PERIODIC_SINE_ONLY },
+	{ HID_USB_DEVICE(USB_VENDOR_ID_LITE_STAR, USB_DEVICE_ID_PXN_V12_LITE),
+		.driver_data = HID_PIDFF_QUIRK_PERIODIC_SINE_ONLY },
+	{ HID_USB_DEVICE(USB_VENDOR_ID_LITE_STAR, USB_DEVICE_ID_PXN_V12_LITE_2),
+		.driver_data = HID_PIDFF_QUIRK_PERIODIC_SINE_ONLY },
+	{ HID_USB_DEVICE(USB_VENDOR_ID_LITE_STAR, USB_DEVICE_LITE_STAR_GT987_FF),
+		.driver_data = HID_PIDFF_QUIRK_PERIODIC_SINE_ONLY },
+	{ }
+};
+MODULE_DEVICE_TABLE(hid, universal_pidff_devices);
+
 static struct hid_driver universal_pidff = {
 	.name = "hid-universal-pidff",
-	.id_table = pidff_wheel_devices,
+	.id_table = universal_pidff_devices,
 	.input_mapping = universal_pidff_input_mapping,
 	.probe = universal_pidff_probe,
-	.input_configured = universal_pidff_input_configured,
-	.report_fixup = universal_pidff_report_fixup
+	.input_configured = universal_pidff_input_configured
 };
 module_hid_driver(universal_pidff);
 
-MODULE_AUTHOR("Oleg Makarenko <oleg@makarenk.ooo>");
-MODULE_AUTHOR("Tomasz Pakuła <tomasz.pakula.oficjalny@gmail.com>");
-MODULE_DESCRIPTION("Universal HID PIDFF Driver");
+MODULE_DESCRIPTION("Universal driver for PID Force Feedback devices");
 MODULE_LICENSE("GPL");
+MODULE_AUTHOR("Makarenko Oleg <oleg@makarenk.ooo>");
+MODULE_AUTHOR("Tomasz Pakuła <tomasz.pakula.oficjalny@gmail.com>");

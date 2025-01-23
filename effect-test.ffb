@@ -8,7 +8,7 @@
 
 06000000 # Spring
 06000000 > REMOVE 0
-06000000 > UPLOAD id:-1 dir:16384 type:SPRING left_coeff:2000 right_coeff:2000
+06000000 > UPLOAD id:-1 dir:16384 type:SPRING left_coeff:10000 right_coeff:10000
 06000000 < 0 id:0
 06000000 > PLAY 0 1
 
@@ -39,31 +39,31 @@
 
 18000000 # Periodic sine
 18000000 > REMOVE 0
-18000000 > UPLOAD id:-1 dir:16384 type:PERIODIC waveform:SINE period:100 magnitude:16384
+18000000 > UPLOAD id:-1 dir:16384 type:PERIODIC waveform:SINE period:100 magnitude:8192
 18000000 < 0 id:0
 18000000 > PLAY 0 1
 
 21000000 # Periodic square
 21000000 > REMOVE 0
-21000000 > UPLOAD id:-1 dir:16384 type:PERIODIC waveform:SQUARE period:100 magnitude:16384
+21000000 > UPLOAD id:-1 dir:16384 type:PERIODIC waveform:SQUARE period:100 magnitude:8192
 21000000 < 0 id:0
 21000000 > PLAY 0 1
 
 24000000 # Periodic triangle
 24000000 > REMOVE 0
-24000000 > UPLOAD id:-1 dir:16384 type:PERIODIC waveform:TRIANGLE period:100 magnitude:16384
+24000000 > UPLOAD id:-1 dir:16384 type:PERIODIC waveform:TRIANGLE period:100 magnitude:8192
 24000000 < 0 id:0
 24000000 > PLAY 0 1
 
 27000000 # Periodic saw up
 27000000 > REMOVE 0
-27000000 > UPLOAD id:-1 dir:16384 type:PERIODIC waveform:SAW_UP period:100 magnitude:16384
+27000000 > UPLOAD id:-1 dir:16384 type:PERIODIC waveform:SAW_UP period:100 magnitude:8192
 27000000 < 0 id:0
 27000000 > PLAY 0 1
 
 30000000 # Periodic saw down
 30000000 > REMOVE 0
-30000000 > UPLOAD id:-1 dir:16384 type:PERIODIC waveform:SAW_DOWN period:100 magnitude:16384
+30000000 > UPLOAD id:-1 dir:16384 type:PERIODIC waveform:SAW_DOWN period:100 magnitude:8192
 30000000 < 0 id:0
 30000000 > PLAY 0 1
 
@@ -80,14 +80,14 @@
 
 40000000 # Back to center
 40000000 > UPLOAD id:-1 dir:16384 type:FRICTION left_coeff:32000 right_coeff:32000
-40000000 > UPLOAD id:-1 dir:16384 type:SPRING left_coeff:5000 right_coeff:5000
+40000000 > UPLOAD id:-1 dir:16384 type:SPRING left_coeff:16384 right_coeff:16384
 40000000 < 0 id:0
 40000000 < 1 id:1
 40100000 > PLAY 0 1
 40100000 > PLAY 1 1
-42000000 > STOP 1
-42000000 > STOP 0
-42000000 > REMOVE 1
-42000000 > REMOVE 0
+45000000 > STOP 1
+45000000 > STOP 0
+45000000 > REMOVE 1
+45000000 > REMOVE 0
 
-42000000 # Test end
+45000000 # Test end
