@@ -1,7 +1,10 @@
-00000000 # Constant force left
-00000000 > UPLOAD id:-1 dir:16384 type:CONSTANT level:8000
-00000000 < 0 id:0
-00000000 > PLAY 0 1
+00000000 # Set gain to the max
+00000000 > GAIN -1
+
+00000001 # Constant force left
+00000001 > UPLOAD id:-1 dir:16384 type:CONSTANT level:8000
+00000001 < 0 id:0
+00000001 > PLAY 0 1
 
 03000000 # Constant force right
 03000000 > UPLOAD id:0 dir:16384 type:CONSTANT level:-8000
