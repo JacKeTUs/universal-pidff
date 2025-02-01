@@ -613,11 +613,13 @@ static void pidff_reset(struct pidff_device *pidff)
  */
 static void pidff_fetch_pool(struct pidff_device *pidff)
 {
-	if (!pidff->pool[PID_SIMULTANEOUS_MAX].value)
+	if (!pidff->pool[PID_SIMULTANEOUS_MAX].value) {
+		hid_dbg(pidff->hid, "PID_SIMULTANEOUS_MAX is null\n");
 		return;
+	}
 
 	int i = 0;
-	while (pidff->pool[PID_SIMULTANEOUS_MAX].value[0] < 2) {
+	do {
 		hid_dbg(pidff->hid, "pid_pool requested again\n");
 		hid_hw_request(pidff->hid, pidff->reports[PID_POOL],
 				HID_REQ_GET_REPORT);
@@ -629,7 +631,7 @@ static void pidff_fetch_pool(struct pidff_device *pidff)
 				 pidff->pool[PID_SIMULTANEOUS_MAX].value[0]);
 			break;
 		}
-	}
+	} while (pidff->pool[PID_SIMULTANEOUS_MAX].value[0] < 2)
 }
 
 /*
