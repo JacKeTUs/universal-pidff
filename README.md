@@ -2,6 +2,8 @@
 
 Linux PIDFF driver with useful patches for initialization of FFB devices. Primarily targeting Direct Drive wheelbases.
 
+Check out Linux Simracing community channel on [Matrix](https://matrix.to/#/#simracing:matrix.org)
+
 ## What's different between this and native pidff driver?
 That driver allows most DirectDrive wheelbases to initialize and work.
 Most of the DirectDrive wheelbases are basically DirectInput wheels, but with some caveats, which Windows allows, but pidff doesn't.
@@ -18,8 +20,10 @@ And that's basically it
 1. MOZA R3, R5, R9, R12, R16, R21
 2. Cammus C5, C12
 3. VRS DirectForce Pro
-4. FFBeast Wheel
-5. ...
+4. FFBeast Wheel, Joystick, Rudder
+5. PXN V10, V12, V12 Lite
+6. Lite Star GT978 FF
+7. ...
 
 ## What works?
 1. FFB (all effects from device descriptor)
@@ -64,7 +68,16 @@ To unload module:
 `sudo rmmod hid_universal_pidff`
 
 ### Testing
-To test the supported effects, use ffbplay from [ffbtools](https://github.com/berarma/ffbtools) and play the included [effect-test.ffb](./effect-test.ffb) file
+1. Compile the module with `make debug`, this will enable printing a lot of kernel debug messages
+2. Start new terminal and run `journalctl -f -k` to monitor new kernel messages
+3. Connect wheelbase via USB to your PC
+4. To test the supported effects, use ffbplay from [ffbtools](https://github.com/berarma/ffbtools) and play the included [effect-test.ffb](./effect-test.ffb) file e.g.
+```
+<path to built ffbplay>/ffbplay -d /dev/input/by-id/usb-<wheelbase-id> ./effect-test.ffb
+```
+Make sure that all effects were played and the wheelbase reacted accordingly.
+5. Switch back to terminal with running `journalctl` command, it should have a lot of debug messages
+
 
 ## How to set up a base parameters  (max rotation degree, max power, filters, etc)?
 ### MOZA
@@ -107,6 +120,10 @@ Then you need to force VRS software to use hidraw, not SDL, to find devices:
 1. Now you can launch soft through that WINEPREFIX:
 
     `WINEPREFIX=$HOME/.vrs-wine wine VRS.exe` - launch VRS software from installation directory.
+
+Note 1: Tested and working version of DirectForce configuration tool is 0.9.4.6 (firmware upgrade not tested, probably does not work)
+
+Note 2: In order to play Damping/Friction/Inertia/Spring effects by ffbplay, you must enable `Use device and game effects` from dropdown menu for these in DirectForce configuration tool and save it to the wheelbase.
 
 
 ## Known issues with the driver

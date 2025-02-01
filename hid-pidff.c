@@ -3,8 +3,6 @@
  *  Force feedback driver for USB HID PID compliant devices
  *
  *  Copyright (c) 2005, 2006 Anssi Hannula <anssi.hannula@gmail.com>
- *  Copyright (c) 2024 Makarenko Oleg <oleg@makarenk.ooo>
- *  Copyright (c) 2024 Tomasz Pakuła <tomasz@pakula.org>
  */
 
 /*
@@ -17,21 +15,15 @@
 #include <linux/input.h>
 #include <linux/slab.h>
 #include <linux/usb.h>
-
 #include <linux/hid.h>
-
-//#include "usbhid.h"
+#include <linux/minmax.h>
 #include "hid-pidff.h"
 
 #define	PID_EFFECTS_MAX		64
+#define	PID_INFINITE		U16_MAX
 
-/*
- * This is 16384 or 90 degrees in polar coordinates (up)
- * Racing games exclusively use polar coordinates but sometimes
- * SDL/Proton mess with this value as they try to do
- * some conversions to fix FFB for flight sticks
- */
-#define PIDFF_FIXED_DIRECTION	0x4000
+/* Linux Force Feedback API uses miliseconds as time unit */
+#define FF_TIME_EXPONENT	-3
 
 /* Report usage table used to put reports into an array */
 
@@ -59,6 +51,14 @@ static const u8 pidff_reports[] = {
 /* device_control is really 0x95, but 0x96 specified as it is the usage of
 the only field in that report */
 
+/* PID special fields */
+
+#define	PID_EFFECT_TYPE			0x25
+#define	PID_DIRECTION			0x57
+#define	PID_EFFECT_OPERATION_ARRAY	0x78
+#define	PID_BLOCK_LOAD_STATUS		0x8b
+#define	PID_DEVICE_CONTROL_ARRAY	0x96
+
 /* Value usage tables used to put fields and values into arrays */
 
 #define PID_EFFECT_BLOCK_INDEX	0
@@ -71,10 +71,6 @@ the only field in that report */
 #define PID_START_DELAY		6
 static const u8 pidff_set_effect[] = {
 	0x22, 0x50, 0x52, 0x53, 0x54, 0x56, 0xa7
-};
-
-static const u8 pidff_set_effect_without_delay[] = {
-	0x22, 0x50, 0x52, 0x53, 0x54, 0x56
 };
 
 #define PID_ATTACK_LEVEL	1
@@ -93,11 +89,6 @@ static const u8 pidff_set_envelope[] = { 0x22, 0x5b, 0x5c, 0x5d, 0x5e };
 static const u8 pidff_set_condition[] = {
 	0x22, 0x23, 0x60, 0x61, 0x62, 0x63, 0x64, 0x65
 };
-
-static const u8 pidff_set_condition_without_pbo[] = {
-	0x22, 0x60, 0x61, 0x62, 0x63, 0x64, 0x65
-};
-
 
 #define PID_MAGNITUDE		1
 #define PID_OFFSET		2
@@ -130,9 +121,10 @@ static const u8 pidff_pool[] = { 0x80, 0x83, 0xa9 };
 
 #define PID_ENABLE_ACTUATORS	0
 #define PID_DISABLE_ACTUATORS	1
-#define PID_RESET		2
-#define PID_DEVICE_CONTINUE 3
-static const u8 pidff_device_control[] = { 0x97, 0x98, 0x9a, 0x9c };
+#define PID_STOP_ALL_EFFECTS	2
+#define PID_RESET		3
+#define PID_DEVICE_CONTINUE 4
+static const u8 pidff_device_control[] = { 0x97, 0x98, 0x99, 0x9a, 0x9c };
 
 #define PID_CONSTANT	0
 #define PID_RAMP	1
@@ -157,6 +149,9 @@ static const u8 pidff_block_load_status[] = { 0x8c, 0x8d };
 #define PID_EFFECT_START	0
 #define PID_EFFECT_STOP		1
 static const u8 pidff_effect_operation_status[] = { 0x79, 0x7b };
+
+/* Polar direction 90 degrees (North) */
+#define PIDFF_FIXED_WHEEL_DIRECTION	0x4000
 
 struct pidff_usage {
 	struct hid_field *field;
@@ -206,9 +201,20 @@ struct pidff_device {
 	int operation_id[sizeof(pidff_effect_operation_status)];
 
 	int pid_id[PID_EFFECTS_MAX];
-	unsigned quirks;
-	unsigned effect_count;
+
+	u32 quirks;
+	u8 effect_count;
 };
+
+/*
+ * Clamp value for a given field
+ */
+static s32 pidff_clamp(s32 i, struct hid_field *field)
+{
+	s32 clamped = clamp(i, field->logical_minimum, field->logical_maximum);
+	pr_debug("clamped from %d to %d", i, clamped);
+	return clamped;
+}
 
 /*
  * Scale an unsigned value with range 0..max for the given field
@@ -220,125 +226,37 @@ static int pidff_rescale(int i, int max, struct hid_field *field)
 }
 
 /*
- * Scale a signed value in range -0x8000..0x7fff for the given field
+ * Scale a signed value in range S16_MIN..S16_MAX for the given field
  */
 static int pidff_rescale_signed(int i, struct hid_field *field)
 {
-	return i == 0 ? 0 : i >
-	    0 ? i * field->logical_maximum / 0x7fff : i *
-	    field->logical_minimum / -0x8000;
+	if (i > 0) return i * field->logical_maximum / S16_MAX;
+	if (i < 0) return i * field->logical_minimum / S16_MIN;
+	return 0;
 }
 
 /*
- * Clamp minimum value for the given field
+ * Scale time value from Linux default (ms) to field units
  */
-static int pidff_clamp_min(int i, struct hid_field *field)
+static u32 pidff_rescale_time(u16 time, struct hid_field *field)
 {
-	int ret =  i < field->logical_minimum ? field->logical_minimum : i;
-	pr_debug("clamped min value from %d to %d\n", i, ret);
-	return ret;
-}
+	u32 scaled_time = time;
+	int exponent = field->unit_exponent;
+	pr_debug("time exponent: %d\n", exponent);
 
-/*
- * Clamp maximum value for the given field
- */
-static int pidff_clamp_max(int i, struct hid_field *field)
-{
-	int ret = i > field->logical_maximum ? field->logical_maximum : i;
-	pr_debug("clamped max value from %d to %d\n", i, ret);
-	return ret;
-}
+	for (;exponent < FF_TIME_EXPONENT; exponent++)
+		scaled_time *= 10;
+	for (;exponent > FF_TIME_EXPONENT; exponent--)
+		scaled_time /= 10;
 
-/*
- * Clamp value for the given field
- */
-static int pidff_clamp(int i, struct hid_field *field)
-{
-	i = pidff_clamp_min(i, field);
-	i = pidff_clamp_max(i, field);
-	return i;
+	pr_debug("time calculated from %d to %d\n", time, scaled_time);
+	return scaled_time;
 }
 
 static void pidff_set(struct pidff_usage *usage, u16 value)
 {
-	usage->value[0] = pidff_rescale(value, 0xffff, usage->field);
+	usage->value[0] = pidff_rescale(value, U16_MAX, usage->field);
 	pr_debug("calculated from %d to %d\n", value, usage->value[0]);
-}
-
-/*
- * Set device continue value
- */
-static void set_device_continue(struct pidff_device *pidff, short enable)
-{	
-	hid_dbg(pidff->hid, "%s: Setting device continue: %s\n", __func__, enable?"ON":"OFF");
-
-	hid_dbg(pidff->hid, "%s: PID_DEVICE_CONTINUE index is: %02x", __func__, pidff->control_id[PID_DEVICE_CONTINUE]);
-	if (pidff->device_control->flags & HID_MAIN_ITEM_VARIABLE) {
-		// Do not reset the device. Just set CONTINUE
-		pidff->device_control->value[pidff->control_id[PID_RESET]-1] = 0;
-		// Do not change actuators. Just set CONTINUE
-		pidff->device_control->value[pidff->control_id[PID_ENABLE_ACTUATORS]-1] = 0;
-		pidff->device_control->value[pidff->control_id[PID_DISABLE_ACTUATORS]-1] = 0;
-		pidff->device_control->value[pidff->control_id[PID_DEVICE_CONTINUE]-1] = enable?1:0;
-	}
-	else {
-		pidff->device_control->value[0] = pidff->control_id[enable?PID_DEVICE_CONTINUE:0];
-	}
-	
-	hid_hw_request(pidff->hid, pidff->reports[PID_DEVICE_CONTROL], HID_REQ_SET_REPORT);
-	hid_hw_wait(pidff->hid);
-}
-
-/*
- * Set actuators value
- */
-static void set_actuators(struct pidff_device *pidff, short enable)
-{	
-	hid_dbg(pidff->hid, "%s: Setting actuators: %s\n", __func__, enable?"ON":"OFF");
-
-	hid_dbg(pidff->hid, "%s: PID_ENABLE_ACTUATORS index is: %02x", __func__, pidff->control_id[PID_ENABLE_ACTUATORS]);
-	hid_dbg(pidff->hid, "%s: PID_DISABLE_ACTUATORS index is: %02x", __func__, pidff->control_id[PID_DISABLE_ACTUATORS]);
-	if (pidff->device_control->flags & HID_MAIN_ITEM_VARIABLE) {
-		// Do not reset the device. Just set the actuators.
-		pidff->device_control->value[pidff->control_id[PID_RESET]-1] = 0;
-		pidff->device_control->value[pidff->control_id[PID_DEVICE_CONTINUE]-1] = 0;
-		pidff->device_control->value[pidff->control_id[PID_ENABLE_ACTUATORS]-1] = enable?1:0;
-		pidff->device_control->value[pidff->control_id[PID_DISABLE_ACTUATORS]-1] = enable?0:1;
-	}
-	else {
-		pidff->device_control->value[0] = pidff->control_id[enable?PID_ENABLE_ACTUATORS:PID_DISABLE_ACTUATORS];
-	}
-	
-	hid_hw_request(pidff->hid, pidff->reports[PID_DEVICE_CONTROL], HID_REQ_SET_REPORT);
-	hid_hw_wait(pidff->hid);
-}
-
-
-/*
- * Device reset routine, with actuators enabling
- */
-static void pidff_device_reset(struct pidff_device *pidff)
-{	
-	hid_dbg(pidff->hid, "%s: Nuclear option\n", __func__);
-
-	if (pidff->device_control->flags & HID_MAIN_ITEM_VARIABLE) {
-		pidff->device_control->value[pidff->control_id[PID_RESET]-1] = 1;
-		pidff->device_control->value[pidff->control_id[PID_DEVICE_CONTINUE]-1] = 0;
-		pidff->device_control->value[pidff->control_id[PID_ENABLE_ACTUATORS]-1] = 1;
-		pidff->device_control->value[pidff->control_id[PID_DISABLE_ACTUATORS]-1] = 0;
-		
-		hid_hw_request(pidff->hid, pidff->reports[PID_DEVICE_CONTROL], HID_REQ_SET_REPORT);
-		hid_hw_wait(pidff->hid);
-	}
-	else {
-		pidff->device_control->value[0] = pidff->control_id[PID_RESET];
-		hid_hw_request(pidff->hid, pidff->reports[PID_DEVICE_CONTROL], HID_REQ_SET_REPORT);
-		hid_hw_wait(pidff->hid);
-
-		pidff->device_control->value[0] = pidff->control_id[PID_ENABLE_ACTUATORS];
-		hid_hw_request(pidff->hid, pidff->reports[PID_DEVICE_CONTROL], HID_REQ_SET_REPORT);
-		hid_hw_wait(pidff->hid);
-	}
 }
 
 static void pidff_set_signed(struct pidff_usage *usage, s16 value)
@@ -348,12 +266,34 @@ static void pidff_set_signed(struct pidff_usage *usage, s16 value)
 	else {
 		if (value < 0)
 			usage->value[0] =
-			    pidff_rescale(-value, 0x8000, usage->field);
+			    pidff_rescale(-value, -S16_MIN, usage->field);
 		else
 			usage->value[0] =
-			    pidff_rescale(value, 0x7fff, usage->field);
+			    pidff_rescale(value, S16_MAX, usage->field);
 	}
 	pr_debug("calculated from %d to %d\n", value, usage->value[0]);
+}
+
+static void pidff_set_time(struct pidff_usage *usage, u16 time)
+{
+	u32 modified_time = pidff_rescale_time(time, usage->field);
+	usage->value[0] = pidff_clamp(modified_time, usage->field);
+}
+
+static void pidff_set_duration(struct pidff_usage *usage, u16 duration)
+{
+	/* Convert infinite length from Linux API (0)
+	   to PID standard (NULL) if needed */
+	if (duration == 0)
+		duration = PID_INFINITE;
+
+	if (duration == PID_INFINITE) {
+		pr_debug("setting infinite duration");
+		usage->value[0] = PID_INFINITE;
+		return;
+	}
+
+	pidff_set_time(usage, duration);
 }
 
 /*
@@ -367,21 +307,19 @@ static void pidff_set_envelope_report(struct pidff_device *pidff,
 
 	pidff->set_envelope[PID_ATTACK_LEVEL].value[0] =
 	    pidff_rescale(envelope->attack_level >
-			  0x7fff ? 0x7fff : envelope->attack_level, 0x7fff,
+			  S16_MAX ? S16_MAX : envelope->attack_level, S16_MAX,
 			  pidff->set_envelope[PID_ATTACK_LEVEL].field);
 	pidff->set_envelope[PID_FADE_LEVEL].value[0] =
 	    pidff_rescale(envelope->fade_level >
-			  0x7fff ? 0x7fff : envelope->fade_level, 0x7fff,
+			  S16_MAX ? S16_MAX : envelope->fade_level, S16_MAX,
 			  pidff->set_envelope[PID_FADE_LEVEL].field);
 
-	pidff->set_envelope[PID_ATTACK_TIME].value[0] = envelope->attack_length;
-	pidff->set_envelope[PID_FADE_TIME].value[0] = envelope->fade_length;
+	pidff_set_time(&pidff->set_envelope[PID_ATTACK_TIME],
+			envelope->attack_length);
+	pidff_set_time(&pidff->set_envelope[PID_FADE_TIME],
+			envelope->fade_length);
 
-	hid_dbg(pidff->hid, "attack level %u => %d\n",
-		envelope->attack_level,
-		pidff->set_envelope[PID_ATTACK_LEVEL].value[0]);
-
-	hid_dbg(pidff->hid, "fade level %u => %d\n",
+	hid_dbg(pidff->hid, "attack %u => %d\n",
 		envelope->attack_level,
 		pidff->set_envelope[PID_ATTACK_LEVEL].value[0]);
 
@@ -401,13 +339,16 @@ static int pidff_needs_set_envelope(struct ff_envelope *envelope,
 		             envelope->attack_length != 0 ||
 		             envelope->fade_length   != 0;
 
-	if (!needs_new_envelope || !old)
+	if (!needs_new_envelope)
+		return false;
+
+	if (!old)
 		return needs_new_envelope;
 
-	return envelope->attack_level != old->attack_level ||
-	       envelope->fade_level != old->fade_level ||
+	return envelope->attack_level  != old->attack_level  ||
+	       envelope->fade_level    != old->fade_level    ||
 	       envelope->attack_length != old->attack_length ||
-	       envelope->fade_length != old->fade_length;
+	       envelope->fade_length   != old->fade_length;
 }
 
 /*
@@ -440,31 +381,31 @@ static int pidff_needs_set_constant(struct ff_effect *effect,
 static void pidff_set_effect_report(struct pidff_device *pidff,
 				    struct ff_effect *effect)
 {
-	/* check for device quirks */
-	unsigned short direction = effect->direction;
-
-	if (pidff->quirks & PIDFF_QUIRK_FIX_WHEEL_DIRECTION)
-		direction = PIDFF_FIXED_DIRECTION;
-
 	pidff->set_effect[PID_EFFECT_BLOCK_INDEX].value[0] =
 		pidff->block_load[PID_EFFECT_BLOCK_INDEX].value[0];
 	pidff->set_effect_type->value[0] =
 		pidff->create_new_effect_type->value[0];
-	pidff->set_effect[PID_DURATION].value[0] =
-		effect->replay.length == 0 ? 0xffff : effect->replay.length;
-	pidff->set_effect[PID_TRIGGER_BUTTON].value[0] =
-		effect->trigger.button;
-	pidff->set_effect[PID_TRIGGER_REPEAT_INT].value[0] =
-		effect->trigger.interval;
+
+	pidff_set_duration(&pidff->set_effect[PID_DURATION],
+		effect->replay.length);
+
+	pidff->set_effect[PID_TRIGGER_BUTTON].value[0] = effect->trigger.button;
+	pidff_set_time(&pidff->set_effect[PID_TRIGGER_REPEAT_INT],
+			effect->trigger.interval);
 	pidff->set_effect[PID_GAIN].value[0] =
 		pidff->set_effect[PID_GAIN].field->logical_maximum;
 	pidff->set_effect[PID_DIRECTION_ENABLE].value[0] = 1;
-	pidff->effect_direction->value[0] =
-		pidff_rescale(direction, 0xffff, pidff->effect_direction);
 
-	if (!(pidff->quirks & PIDFF_QUIRK_NO_DELAY_EFFECT)) {
-		pidff->set_effect[PID_START_DELAY].value[0] = effect->replay.delay;
-	}
+	/* Use fixed direction if needed */
+	pidff->effect_direction->value[0] = pidff_rescale(
+		pidff->quirks & HID_PIDFF_QUIRK_FIX_WHEEL_DIRECTION ?
+		PIDFF_FIXED_WHEEL_DIRECTION : effect->direction,
+		U16_MAX, pidff->effect_direction);
+
+	/* Omit setting delay field if it's missing */
+	if (!(pidff->quirks & HID_PIDFF_QUIRK_MISSING_DELAY))
+		pidff_set_time(&pidff->set_effect[PID_START_DELAY],
+				effect->replay.delay);
 
 	hid_hw_request(pidff->hid, pidff->reports[PID_SET_EFFECT],
 			HID_REQ_SET_REPORT);
@@ -496,35 +437,15 @@ static void pidff_set_periodic_report(struct pidff_device *pidff,
 	pidff_set_signed(&pidff->set_periodic[PID_OFFSET],
 			 effect->u.periodic.offset);
 	pidff_set(&pidff->set_periodic[PID_PHASE], effect->u.periodic.phase);
-	
-
-	// Scale time from ms to device units
-	__s32 unit_exponent = pidff->set_periodic[PID_PERIOD].field->unit_exponent;
-	u32 scaled_period = effect->u.periodic.period;
-
-	hid_dbg(pidff->hid, "unit_exponent is %d\n", unit_exponent);
-	
-	// 3 is ms, linux hid default period
-	for (;unit_exponent < -3; unit_exponent++) {
-		scaled_period *= 10;
-	}
-	for (;unit_exponent > -3; unit_exponent--){
-		scaled_period /= 10;
-	}
-			
-	if (scaled_period != effect->u.periodic.period) {
-		hid_dbg(pidff->hid, "scaled period from %d to %d\n", effect->u.periodic.period, scaled_period);
-	}
 	// Actually we just can use clamp macro
 	//  from include/linux/kernel.h#L59
-	// But for the debug purposes we're leaving it as is for now
+	// But for the debug purposes we're leaving it as is
 	pidff->set_periodic[PID_PERIOD].value[0] =
-		pidff_clamp(scaled_period,
+		pidff_clamp(effect->u.periodic.period,
 			pidff->set_periodic[PID_PERIOD].field);
 
 	hid_hw_request(pidff->hid, pidff->reports[PID_SET_PERIODIC],
 			HID_REQ_SET_REPORT);
-
 }
 
 /*
@@ -546,35 +467,32 @@ static void pidff_set_condition_report(struct pidff_device *pidff,
 				       struct ff_effect *effect)
 {
 	int i;
-	// Later we should take axis number out of the device.
-	// Our driver must work with MOZA AB9 FFB Base
-	int max_axis = 2;
+	int max_axis;
 
-	// quick and dirty fix for NULL pointer deref.
-	int shift_index = 0;
+	/* Devices missing Parameter Block Offset can only have one axis */
+	max_axis = pidff->quirks & HID_PIDFF_QUIRK_MISSING_PBO ? 1 : 2;
 
 	pidff->set_condition[PID_EFFECT_BLOCK_INDEX].value[0] =
 		pidff->block_load[PID_EFFECT_BLOCK_INDEX].value[0];
 
-	if (pidff->quirks & PIDFF_QUIRK_NO_PID_PARAM_BLOCK_OFFSET) {
-		max_axis = 1;
-		shift_index = 1;
-	}
+	pr_debug("setting condition. max_axis: %d", max_axis);
 
 	for (i = 0; i < max_axis; i++) {
-		if (! (pidff->quirks & PIDFF_QUIRK_NO_PID_PARAM_BLOCK_OFFSET) )
+		/* Omit Parameter Block Offset if missing */
+		if (!(pidff->quirks & HID_PIDFF_QUIRK_MISSING_PBO))
 			pidff->set_condition[PID_PARAM_BLOCK_OFFSET].value[0] = i;
-		pidff_set_signed(&pidff->set_condition[PID_CP_OFFSET-shift_index],
+
+		pidff_set_signed(&pidff->set_condition[PID_CP_OFFSET],
 				 effect->u.condition[i].center);
-		pidff_set_signed(&pidff->set_condition[PID_POS_COEFFICIENT-shift_index],
+		pidff_set_signed(&pidff->set_condition[PID_POS_COEFFICIENT],
 				 effect->u.condition[i].right_coeff);
-		pidff_set_signed(&pidff->set_condition[PID_NEG_COEFFICIENT-shift_index],
+		pidff_set_signed(&pidff->set_condition[PID_NEG_COEFFICIENT],
 				 effect->u.condition[i].left_coeff);
-		pidff_set(&pidff->set_condition[PID_POS_SATURATION-shift_index],
+		pidff_set(&pidff->set_condition[PID_POS_SATURATION],
 			  effect->u.condition[i].right_saturation);
-		pidff_set(&pidff->set_condition[PID_NEG_SATURATION-shift_index],
+		pidff_set(&pidff->set_condition[PID_NEG_SATURATION],
 			  effect->u.condition[i].left_saturation);
-		pidff_set(&pidff->set_condition[PID_DEAD_BAND-shift_index],
+		pidff_set(&pidff->set_condition[PID_DEAD_BAND],
 			  effect->u.condition[i].deadband);
 		hid_hw_request(pidff->hid, pidff->reports[PID_SET_CONDITION],
 				HID_REQ_SET_REPORT);
@@ -631,7 +549,98 @@ static int pidff_needs_set_ramp(struct ff_effect *effect, struct ff_effect *old)
 }
 
 /*
+ * Set device gain
+ */
+static void pidff_set_gain_report(struct pidff_device *pidff, u16 gain)
+{
+	if (!pidff->device_gain[PID_DEVICE_GAIN_FIELD].field)
+		return;
+
+	pidff_set(&pidff->device_gain[PID_DEVICE_GAIN_FIELD], gain);
+	hid_hw_request(pidff->hid, pidff->reports[PID_DEVICE_GAIN],
+			HID_REQ_SET_REPORT);
+}
+
+/*
+ * Clear device control report
+ */
+static void pidff_send_device_control(struct pidff_device *pidff, int field)
+{
+	int i, tmp;
+	int field_index = pidff->control_id[field];
+
+	/* Detect if the field is a bitmask variable or an array */
+	if (pidff->device_control->flags & HID_MAIN_ITEM_VARIABLE) {
+		hid_dbg(pidff->hid, "DEVICE_CONTROL is a bitmask\n");
+		/* Clear current bitmask */
+		for(i = 0; i < sizeof(pidff_device_control); i++) {
+			tmp = pidff->control_id[i];
+			hid_dbg(pidff->hid, "Clearing index: %d", tmp);
+			pidff->device_control->value[tmp - 1] = 0;
+		}
+
+		pidff->device_control->value[field_index - 1] = 1;
+	} else {
+		hid_dbg(pidff->hid, "DEVICE_CONTROL is an array\n");
+		pidff->device_control->value[0] = field_index;
+	}
+
+	hid_hw_request(pidff->hid, pidff->reports[PID_DEVICE_CONTROL], HID_REQ_SET_REPORT);
+	hid_hw_wait(pidff->hid);
+}
+
+/*
+ * Modify actuators state
+ */
+static void pidff_modify_actuators_state(struct pidff_device *pidff, bool enable)
+{
+	hid_dbg(pidff->hid, "%s actuators\n", enable ? "enable" : "disable");
+	pidff_send_device_control(pidff,
+		enable ? PID_ENABLE_ACTUATORS : PID_DISABLE_ACTUATORS);
+}
+
+/*
+ * Reset the device, stop all effects, enable actuators
+ */
+static void pidff_reset(struct pidff_device *pidff)
+{
+	/* We reset twice as sometimes hid_wait_io isn't waiting long enough */
+	pidff_send_device_control(pidff, PID_RESET);
+	pidff_send_device_control(pidff, PID_RESET);
+	pidff->effect_count = 0;
+
+	pidff_send_device_control(pidff, PID_STOP_ALL_EFFECTS);
+	pidff_modify_actuators_state(pidff, 1);
+}
+
+/*
+ * Refetch pool report
+ */
+static void pidff_fetch_pool(struct pidff_device *pidff)
+{
+	if (!pidff->pool[PID_SIMULTANEOUS_MAX].value)
+		return;
+
+	int i = 0;
+	while (pidff->pool[PID_SIMULTANEOUS_MAX].value[0] < 2) {
+		hid_dbg(pidff->hid, "pid_pool requested again\n");
+		hid_hw_request(pidff->hid, pidff->reports[PID_POOL],
+				HID_REQ_GET_REPORT);
+		hid_hw_wait(pidff->hid);
+
+		if (i++ > 20) {
+			hid_warn(pidff->hid,
+				 "device reports %d simultaneous effects\n",
+				 pidff->pool[PID_SIMULTANEOUS_MAX].value[0]);
+			break;
+		}
+	}
+}
+
+/*
  * Send a request for effect upload to the device
+ *
+ * Reset and enable actuators if no effects were present on the device
  *
  * Returns 0 if device reported success, -ENOSPC if the device reported memory
  * is full. Upon unknown response the function will retry for 60 times, if
@@ -640,6 +649,9 @@ static int pidff_needs_set_ramp(struct ff_effect *effect, struct ff_effect *old)
 static int pidff_request_effect_upload(struct pidff_device *pidff, int efnum)
 {
 	int j;
+
+	if (!pidff->effect_count)
+		pidff_reset(pidff);
 
 	pidff->create_new_effect_type->value[0] = efnum;
 	hid_hw_request(pidff->hid, pidff->reports[PID_CREATE_NEW_EFFECT],
@@ -660,6 +672,9 @@ static int pidff_request_effect_upload(struct pidff_device *pidff, int efnum)
 			hid_dbg(pidff->hid, "device reported free memory: %d bytes\n",
 				 pidff->block_load[PID_RAM_POOL_AVAILABLE].value ?
 				 pidff->block_load[PID_RAM_POOL_AVAILABLE].value[0] : -1);
+
+			pidff->effect_count++;
+			hid_dbg(pidff->hid, "current effect count: %d", pidff->effect_count);
 			return 0;
 		}
 		if (pidff->block_load_status->value[0] ==
@@ -687,13 +702,9 @@ static void pidff_playback_pid(struct pidff_device *pidff, int pid_id, int n)
 	} else {
 		pidff->effect_operation_status->value[0] =
 			pidff->operation_id[PID_EFFECT_START];
-
-		n = clamp(n, pidff->effect_operation[PID_LOOP_COUNT].field->logical_minimum,
-                                pidff->effect_operation[PID_LOOP_COUNT].field->logical_maximum);
 		pidff->effect_operation[PID_LOOP_COUNT].value[0] = n;
 	}
 
-	hid_dbg(pidff->hid, "Playing effect %d %d times\n", pid_id, n);
 	hid_hw_request(pidff->hid, pidff->reports[PID_EFFECT_OPERATION],
 			HID_REQ_SET_REPORT);
 }
@@ -712,12 +723,18 @@ static int pidff_playback(struct input_dev *dev, int effect_id, int value)
 
 /*
  * Erase effect with PID id
+ * Decrease the device effect counter
  */
 static void pidff_erase_pid(struct pidff_device *pidff, int pid_id)
 {
 	pidff->block_free[PID_EFFECT_BLOCK_INDEX].value[0] = pid_id;
 	hid_hw_request(pidff->hid, pidff->reports[PID_BLOCK_FREE],
 			HID_REQ_SET_REPORT);
+
+	if (pidff->effect_count > 0)
+		pidff->effect_count--;
+
+	hid_dbg(pidff->hid, "current effect count: %d", pidff->effect_count);
 }
 
 /*
@@ -772,7 +789,7 @@ static int pidff_upload_effect(struct input_dev *dev, struct ff_effect *effect,
 		pidff->block_load[PID_EFFECT_BLOCK_INDEX].value[0] =
 			pidff->pid_id[effect->id];
 	}
-	hid_dbg(pidff->hid, "Upload effect 0x%02x,", effect->type);
+
 	switch (effect->type) {
 	case FF_CONSTANT:
 		if (!old) {
@@ -786,9 +803,8 @@ static int pidff_upload_effect(struct input_dev *dev, struct ff_effect *effect,
 		if (!old || pidff_needs_set_constant(effect, old))
 			pidff_set_constant_force_report(pidff, effect);
 		if (pidff_needs_set_envelope(&effect->u.constant.envelope,
-					     &old->u.periodic.envelope))
-			pidff_set_envelope_report(pidff,
-					&effect->u.constant.envelope);
+					old ? &old->u.constant.envelope : NULL))
+			pidff_set_envelope_report(pidff, &effect->u.constant.envelope);
 		break;
 
 	case FF_PERIODIC:
@@ -814,7 +830,7 @@ static int pidff_upload_effect(struct input_dev *dev, struct ff_effect *effect,
 				return -EINVAL;
 			}
 
-			if (pidff->quirks & PIDFF_QUIRK_PERIODIC_SINE_ONLY)
+			if (pidff->quirks & HID_PIDFF_QUIRK_PERIODIC_SINE_ONLY)
 				type_id = PID_SINE;
 
 			error = pidff_request_effect_upload(pidff,
@@ -826,11 +842,9 @@ static int pidff_upload_effect(struct input_dev *dev, struct ff_effect *effect,
 			pidff_set_effect_report(pidff, effect);
 		if (!old || pidff_needs_set_periodic(effect, old))
 			pidff_set_periodic_report(pidff, effect);
-
 		if (pidff_needs_set_envelope(&effect->u.periodic.envelope,
-					     &old->u.periodic.envelope))
-			pidff_set_envelope_report(pidff,
-					&effect->u.periodic.envelope);
+					old ? &old->u.periodic.envelope : NULL))
+			pidff_set_envelope_report(pidff, &effect->u.periodic.envelope);
 		break;
 
 	case FF_RAMP:
@@ -844,56 +858,32 @@ static int pidff_upload_effect(struct input_dev *dev, struct ff_effect *effect,
 			pidff_set_effect_report(pidff, effect);
 		if (!old || pidff_needs_set_ramp(effect, old))
 			pidff_set_ramp_force_report(pidff, effect);
-
 		if (pidff_needs_set_envelope(&effect->u.ramp.envelope,
-					     &old->u.periodic.envelope))
-			pidff_set_envelope_report(pidff,
-					&effect->u.ramp.envelope);
+					old ? &old->u.ramp.envelope : NULL))
+			pidff_set_envelope_report(pidff, &effect->u.ramp.envelope);
 		break;
 
 	case FF_SPRING:
-		if (!old) {
-			error = pidff_request_effect_upload(pidff,
-					pidff->type_id[PID_SPRING]);
-			if (error)
-				return error;
-		}
-		if (!old || pidff_needs_set_effect(effect, old))
-			pidff_set_effect_report(pidff, effect);
-		if (!old || pidff_needs_set_condition(effect, old))
-			pidff_set_condition_report(pidff, effect);
-		break;
-
+	case FF_DAMPER:
+	case FF_INERTIA:
 	case FF_FRICTION:
 		if (!old) {
+			switch(effect->type) {
+			case FF_SPRING:
+				type_id = PID_SPRING;
+				break;
+			case FF_DAMPER:
+				type_id = PID_DAMPER;
+				break;
+			case FF_INERTIA:
+				type_id = PID_INERTIA;
+				break;
+			case FF_FRICTION:
+				type_id = PID_FRICTION;
+				break;
+			}
 			error = pidff_request_effect_upload(pidff,
-					pidff->type_id[PID_FRICTION]);
-			if (error)
-				return error;
-		}
-		if (!old || pidff_needs_set_effect(effect, old))
-			pidff_set_effect_report(pidff, effect);
-		if (!old || pidff_needs_set_condition(effect, old))
-			pidff_set_condition_report(pidff, effect);
-		break;
-
-	case FF_DAMPER:
-		if (!old) {
-			error = pidff_request_effect_upload(pidff,
-					pidff->type_id[PID_DAMPER]);
-			if (error)
-				return error;
-		}
-		if (!old || pidff_needs_set_effect(effect, old))
-			pidff_set_effect_report(pidff, effect);
-		if (!old || pidff_needs_set_condition(effect, old))
-			pidff_set_condition_report(pidff, effect);
-		break;
-
-	case FF_INERTIA:
-		if (!old) {
-			error = pidff_request_effect_upload(pidff,
-					pidff->type_id[PID_INERTIA]);
+					pidff->type_id[type_id]);
 			if (error)
 				return error;
 		}
@@ -924,11 +914,7 @@ static int pidff_upload_effect(struct input_dev *dev, struct ff_effect *effect,
  */
 static void pidff_set_gain(struct input_dev *dev, u16 gain)
 {
-	struct pidff_device *pidff = dev->ff->private;
-
-	pidff_set(&pidff->device_gain[PID_DEVICE_GAIN_FIELD], gain);
-	hid_hw_request(pidff->hid, pidff->reports[PID_DEVICE_GAIN],
-			HID_REQ_SET_REPORT);
+	pidff_set_gain_report(dev->ff->private, gain);
 }
 
 static void pidff_autocenter(struct pidff_device *pidff, u16 magnitude)
@@ -951,9 +937,10 @@ static void pidff_autocenter(struct pidff_device *pidff, u16 magnitude)
 	pidff->set_effect[PID_TRIGGER_REPEAT_INT].value[0] = 0;
 	pidff_set(&pidff->set_effect[PID_GAIN], magnitude);
 	pidff->set_effect[PID_DIRECTION_ENABLE].value[0] = 1;
-	if (!(pidff->quirks & PIDFF_QUIRK_NO_DELAY_EFFECT)) {
+
+	/* Omit setting delay field if it's missing */
+	if (!(pidff->quirks & HID_PIDFF_QUIRK_MISSING_DELAY))
 		pidff->set_effect[PID_START_DELAY].value[0] = 0;
-	}
 
 	hid_hw_request(pidff->hid, pidff->reports[PID_SET_EFFECT],
 			HID_REQ_SET_REPORT);
@@ -964,9 +951,7 @@ static void pidff_autocenter(struct pidff_device *pidff, u16 magnitude)
  */
 static void pidff_set_autocenter(struct input_dev *dev, u16 magnitude)
 {
-	struct pidff_device *pidff = dev->ff->private;
-
-	pidff_autocenter(pidff, magnitude);
+	pidff_autocenter(dev->ff->private, magnitude);
 }
 
 /*
@@ -975,7 +960,13 @@ static void pidff_set_autocenter(struct input_dev *dev, u16 magnitude)
 static int pidff_find_fields(struct pidff_usage *usage, const u8 *table,
 			     struct hid_report *report, int count, int strict)
 {
+	if (!report) {
+		pr_debug("pidff_find_fields, null report\n");
+		return -1;
+	}
+
 	int i, j, k, found;
+	int return_value = 0;
 
 	for (k = 0; k < count; k++) {
 		found = 0;
@@ -1000,12 +991,22 @@ static int pidff_find_fields(struct pidff_usage *usage, const u8 *table,
 			if (found)
 				break;
 		}
-		if (!found && strict) {
+		if (!found && table[k] == pidff_set_effect[PID_START_DELAY]) {
+			pr_debug("Delay field not found, but that's OK\n");
+			pr_debug("Setting MISSING_DELAY quirk\n");
+			return_value |= HID_PIDFF_QUIRK_MISSING_DELAY;
+		}
+		else if (!found && table[k] == pidff_set_condition[PID_PARAM_BLOCK_OFFSET]) {
+			pr_debug("PBO field not found, but that's OK\n");
+			pr_debug("Setting MISSING_PBO quirk\n");
+			return_value |= HID_PIDFF_QUIRK_MISSING_PBO;
+		}
+		else if (!found && strict) {
 			pr_debug("failed to locate %d\n", k);
 			return -1;
 		}
 	}
-	return 0;
+	return return_value;
 }
 
 /*
@@ -1088,6 +1089,11 @@ static int pidff_reports_ok(struct pidff_device *pidff)
 static struct hid_field *pidff_find_special_field(struct hid_report *report,
 						  int usage, int enforce_min)
 {
+	if (!report) {
+		pr_debug("pidff_find_special_field, null report\n");
+		return NULL;
+	}
+
 	int i;
 
 	for (i = 0; i < report->maxfield; i++) {
@@ -1138,28 +1144,26 @@ static int pidff_find_special_fields(struct pidff_device *pidff)
 {
 	hid_dbg(pidff->hid, "finding special fields\n");
 
-	int strict_pid_device_control = 1;
-
-	if (pidff->quirks & PIDFF_QUIRK_NO_STRICT_PID_CONTROL)
-		strict_pid_device_control = 0;
 	pidff->create_new_effect_type =
 		pidff_find_special_field(pidff->reports[PID_CREATE_NEW_EFFECT],
-					 0x25, 1);
+					 PID_EFFECT_TYPE, 1);
 	pidff->set_effect_type =
 		pidff_find_special_field(pidff->reports[PID_SET_EFFECT],
-					 0x25, 1);
+					 PID_EFFECT_TYPE, 1);
 	pidff->effect_direction =
 		pidff_find_special_field(pidff->reports[PID_SET_EFFECT],
-					 0x57, 0);
+					 PID_DIRECTION, 0);
 	pidff->device_control =
 		pidff_find_special_field(pidff->reports[PID_DEVICE_CONTROL],
-					 0x96, strict_pid_device_control);
+			PID_DEVICE_CONTROL_ARRAY,
+			!(pidff->quirks & HID_PIDFF_QUIRK_PERMISSIVE_CONTROL));
+
 	pidff->block_load_status =
 		pidff_find_special_field(pidff->reports[PID_BLOCK_LOAD],
-					 0x8b, 1);
+					 PID_BLOCK_LOAD_STATUS, 1);
 	pidff->effect_operation_status =
 		pidff_find_special_field(pidff->reports[PID_EFFECT_OPERATION],
-					 0x78, 1);
+					 PID_EFFECT_OPERATION_ARRAY, 1);
 
 	hid_dbg(pidff->hid, "search done\n");
 
@@ -1283,24 +1287,18 @@ static int pidff_find_effects(struct pidff_device *pidff,
  */
 static int pidff_init_fields(struct pidff_device *pidff, struct input_dev *dev)
 {
-	int envelope_ok = 0;
+	int status = 0;
 
-	if (pidff->quirks & PIDFF_QUIRK_NO_DELAY_EFFECT) {
-		hid_dbg(pidff->hid, "Find fields for set_effect without delay\n");
-		if (pidff_find_fields(pidff->set_effect,
-					pidff_set_effect_without_delay,
-					pidff->reports[PID_SET_EFFECT], \
-					sizeof(pidff_set_effect_without_delay), 1)) {
-			hid_err(pidff->hid, "unknown set_effect report layout\n");
-			return -ENODEV;
-		}
+	/* Save info about the device not having the DELAY ffb field. */
+	status = PIDFF_FIND_FIELDS(set_effect, PID_SET_EFFECT, 1);
+	if (status == -1) {
+		hid_err(pidff->hid, "unknown set_effect report layout\n");
+		return -ENODEV;
 	}
-	else {
-		if (PIDFF_FIND_FIELDS(set_effect, PID_SET_EFFECT, 1)) {
-			hid_err(pidff->hid, "unknown set_effect report layout\n");
-			return -ENODEV;
-		}
-	}
+	pidff->quirks |= status;
+
+	if (status & HID_PIDFF_QUIRK_MISSING_DELAY)
+		hid_dbg(pidff->hid, "Adding MISSING_DELAY quirk\n");
 
 
 	PIDFF_FIND_FIELDS(block_load, PID_BLOCK_LOAD, 0);
@@ -1319,13 +1317,10 @@ static int pidff_init_fields(struct pidff_device *pidff, struct input_dev *dev)
 		return -ENODEV;
 	}
 
-	if (!PIDFF_FIND_FIELDS(set_envelope, PID_SET_ENVELOPE, 1))
-		envelope_ok = 1;
-
 	if (pidff_find_special_fields(pidff) || pidff_find_effects(pidff, dev))
 		return -ENODEV;
 
-	if (!envelope_ok) {
+	if (PIDFF_FIND_FIELDS(set_envelope, PID_SET_ENVELOPE, 1)) {
 		if (test_and_clear_bit(FF_CONSTANT, dev->ffbit))
 			hid_warn(pidff->hid,
 				 "has constant effect but no envelope\n");
@@ -1350,32 +1345,20 @@ static int pidff_init_fields(struct pidff_device *pidff, struct input_dev *dev)
 		clear_bit(FF_RAMP, dev->ffbit);
 	}
 
-	if (pidff->quirks & PIDFF_QUIRK_NO_PID_PARAM_BLOCK_OFFSET) {
-		if ((test_bit(FF_SPRING, dev->ffbit) ||
-			test_bit(FF_DAMPER, dev->ffbit) ||
-			test_bit(FF_FRICTION, dev->ffbit) ||
-			test_bit(FF_INERTIA, dev->ffbit)) &&
-			pidff_find_fields(pidff->set_condition,
-						pidff_set_condition_without_pbo,
-						pidff->reports[PID_SET_CONDITION], \
-						sizeof(pidff_set_condition_without_pbo), 1)) {
-			hid_warn(pidff->hid, "unknown condition effect layout (w/o PBO)\n");
+	if (test_bit(FF_SPRING, dev->ffbit) ||
+	    test_bit(FF_DAMPER, dev->ffbit) ||
+	    test_bit(FF_FRICTION, dev->ffbit) ||
+	    test_bit(FF_INERTIA, dev->ffbit)) {
+		status = PIDFF_FIND_FIELDS(set_condition, PID_SET_CONDITION, 1);
+
+		if (status < 0) {
+			hid_warn(pidff->hid, "unknown condition effect layout\n");
 			clear_bit(FF_SPRING, dev->ffbit);
 			clear_bit(FF_DAMPER, dev->ffbit);
 			clear_bit(FF_FRICTION, dev->ffbit);
 			clear_bit(FF_INERTIA, dev->ffbit);
 		}
-	}
-	else if ((test_bit(FF_SPRING, dev->ffbit) ||
-	     test_bit(FF_DAMPER, dev->ffbit) ||
-	     test_bit(FF_FRICTION, dev->ffbit) ||
-	     test_bit(FF_INERTIA, dev->ffbit)) &&
-	    PIDFF_FIND_FIELDS(set_condition, PID_SET_CONDITION, 1)) {
-		hid_warn(pidff->hid, "unknown condition effect layout\n");
-		clear_bit(FF_SPRING, dev->ffbit);
-		clear_bit(FF_DAMPER, dev->ffbit);
-		clear_bit(FF_FRICTION, dev->ffbit);
-		clear_bit(FF_INERTIA, dev->ffbit);
+		pidff->quirks |= status;
 	}
 
 	if (test_bit(FF_PERIODIC, dev->ffbit) &&
@@ -1392,54 +1375,6 @@ static int pidff_init_fields(struct pidff_device *pidff, struct input_dev *dev)
 	return 0;
 }
 
-
-
-
-
-/*
- * Reset the device
- */
-static void pidff_reset(struct pidff_device *pidff)
-{
-	struct hid_device *hid = pidff->hid;
-	int i = 0;
-
-	hid_dbg(hid, "%s: Resetting the device...", __func__);
-
-	hid_dbg(hid, "%s: PID_RESET index is %02x", __func__, pidff->control_id[PID_RESET]);
-	if (pidff->device_control->flags & HID_MAIN_ITEM_VARIABLE) {
-		pidff->device_control->value[pidff->control_id[PID_RESET]-1] = 1;
-	} else {
-		pidff->device_control->value[0] = pidff->control_id[PID_RESET];
-	}
-	/* We reset twice as sometimes hid_wait_io isn't waiting long enough */
-	hid_hw_request(hid, pidff->reports[PID_DEVICE_CONTROL], HID_REQ_SET_REPORT);
-	hid_hw_wait(hid);
-	hid_hw_request(hid, pidff->reports[PID_DEVICE_CONTROL], HID_REQ_SET_REPORT);
-	hid_hw_wait(hid);
-
-	set_actuators(pidff, 1);
-
-	/* pool report is sometimes messed up, refetch it */
-	hid_hw_request(hid, pidff->reports[PID_POOL], HID_REQ_GET_REPORT);
-	hid_hw_wait(hid);
-
-	if (pidff->pool[PID_SIMULTANEOUS_MAX].value) {
-		while (pidff->pool[PID_SIMULTANEOUS_MAX].value[0] < 2) {
-			if (i++ > 20) {
-				hid_warn(pidff->hid,
-					 "device reports %d simultaneous effects\n",
-					 pidff->pool[PID_SIMULTANEOUS_MAX].value[0]);
-				break;
-			}
-			hid_dbg(pidff->hid, "pid_pool requested again\n");
-			hid_hw_request(hid, pidff->reports[PID_POOL],
-					  HID_REQ_GET_REPORT);
-			hid_hw_wait(hid);
-		}
-	}
-	hid_dbg(hid, "%s: Resetting device complete", __func__);
-}
 
 /*
  * Test if autocenter modification is using the supported method
@@ -1465,7 +1400,7 @@ static int pidff_check_autocenter(struct pidff_device *pidff,
 
 	if (pidff->block_load[PID_EFFECT_BLOCK_INDEX].value[0] ==
 	    pidff->block_load[PID_EFFECT_BLOCK_INDEX].field->logical_minimum + 1) {
-		pidff_autocenter(pidff, 0xffff);
+		pidff_autocenter(pidff, U16_MAX);
 		set_bit(FF_AUTOCENTER, dev->ffbit);
 	} else {
 		hid_notice(pidff->hid,
@@ -1480,9 +1415,10 @@ static int pidff_check_autocenter(struct pidff_device *pidff,
 }
 
 /*
- * Check if the device is PID and initialize it, with quirks
+ * Check if the device is PID and initialize it
+ * Set initial quirks
  */
-int hid_pidff_init_quirks(struct hid_device *hid, const struct hid_device_id *id)
+int hid_pidff_init_with_quirks(struct hid_device *hid, u32 initial_quirks)
 {
 	struct pidff_device *pidff;
 	struct hid_input *hidinput = list_entry(hid->inputs.next,
@@ -1504,8 +1440,8 @@ int hid_pidff_init_quirks(struct hid_device *hid, const struct hid_device_id *id
 		return -ENOMEM;
 
 	pidff->hid = hid;
-	pidff->quirks |= id->driver_data;
-	hid_dbg(dev, "Device quirks: %d\n", pidff->quirks);
+	pidff->quirks = initial_quirks;
+	pidff->effect_count = 0;
 
 	hid_device_io_start(hid);
 
@@ -1522,14 +1458,9 @@ int hid_pidff_init_quirks(struct hid_device *hid, const struct hid_device_id *id
 	if (error)
 		goto fail;
 
-	pidff_reset(pidff);
-
-	if (test_bit(FF_GAIN, dev->ffbit)) {
-		pidff_set(&pidff->device_gain[PID_DEVICE_GAIN_FIELD], 0xffff);
-		hid_hw_request(hid, pidff->reports[PID_DEVICE_GAIN],
-				     HID_REQ_SET_REPORT);
-	}
-
+	/* pool report is sometimes messed up, refetch it */
+	pidff_fetch_pool(pidff);
+	pidff_set_gain_report(pidff, U16_MAX);
 	error = pidff_check_autocenter(pidff, dev);
 	if (error)
 		goto fail;
@@ -1571,8 +1502,8 @@ int hid_pidff_init_quirks(struct hid_device *hid, const struct hid_device_id *id
 	ff->set_autocenter = pidff_set_autocenter;
 	ff->playback = pidff_playback;
 
-	hid_info(dev, "Force feedback for USB HID PID devices\n");
-	hid_dbg(dev, "Active pidff quirks: 0x%x", pidff->quirks);
+	hid_info(dev, "Force feedback for USB HID PID devices by Anssi Hannula <anssi.hannula@gmail.com>\n");
+	hid_dbg(dev, "Active quirks mask: 0x%x\n", pidff->quirks);
 
 	hid_device_io_stop(hid);
 
@@ -1583,4 +1514,14 @@ int hid_pidff_init_quirks(struct hid_device *hid, const struct hid_device_id *id
 
 	kfree(pidff);
 	return error;
+}
+
+/*
+ * Check if the device is PID and initialize it
+ * Wrapper made to keep the compatibility with old
+ * init function
+ */
+int hid_pidff_init(struct hid_device *hid)
+{
+	return hid_pidff_init_with_quirks(hid, 0);
 }
