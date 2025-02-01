@@ -180,6 +180,9 @@ static const struct hid_device_id universal_pidff_devices[] = {
 		.driver_data = HID_PIDFF_QUIRK_PERIODIC_SINE_ONLY },
 	{ HID_USB_DEVICE(USB_VENDOR_ID_LITE_STAR, USB_DEVICE_LITE_STAR_GT987_FF),
 		.driver_data = HID_PIDFF_QUIRK_PERIODIC_SINE_ONLY },
+#ifdef OPENFFBOARD
+	{ HID_USB_DEVICE(USB_VENDOR_ID_OPENFFB, USB_DEVICE_ID_OPENFFBOARD), },
+#endif
 	{ }
 };
 MODULE_DEVICE_TABLE(hid, universal_pidff_devices);
