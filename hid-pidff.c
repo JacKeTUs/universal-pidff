@@ -79,15 +79,16 @@ static const u8 pidff_set_effect[] = {
 #define PID_FADE_TIME		4
 static const u8 pidff_set_envelope[] = { 0x22, 0x5b, 0x5c, 0x5d, 0x5e };
 
-#define PID_PARAM_BLOCK_OFFSET	1
+
 #define PID_CP_OFFSET		2
 #define PID_POS_COEFFICIENT	3
 #define PID_NEG_COEFFICIENT	4
 #define PID_POS_SATURATION	5
 #define PID_NEG_SATURATION	6
 #define PID_DEAD_BAND		7
+#define PID_PARAM_BLOCK_OFFSET	8
 static const u8 pidff_set_condition[] = {
-	0x22, 0x23, 0x60, 0x61, 0x62, 0x63, 0x64, 0x65
+	0x22, 0x60, 0x61, 0x62, 0x63, 0x64, 0x65, 0x23
 };
 
 #define PID_MAGNITUDE		1
