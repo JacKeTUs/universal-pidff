@@ -476,19 +476,28 @@ static void pidff_set_condition_report(struct pidff_device *pidff,
 
 	for (i = 0; i < max_axis; i++) {
 		/* Omit Parameter Block Offset if missing */
-		if (!(pidff->quirks & HID_PIDFF_QUIRK_MISSING_PBO))
+		if (!(pidff->quirks & HID_PIDFF_QUIRK_MISSING_PBO)) {
+			pr_debug("setting PID_PARAM_BLOCK_OFFSET (%x)\n", pidff_set_condition[PID_PARAM_BLOCK_OFFSET]);
 			pidff->set_condition[PID_PARAM_BLOCK_OFFSET].value[0] = i;
-
+		}
+		pr_debug("setting PID_CP_OFFSET (%x)\n", pidff_set_condition[PID_CP_OFFSET]);
 		pidff_set_signed(&pidff->set_condition[PID_CP_OFFSET],
 				 effect->u.condition[i].center);
+		pr_debug("setting PID_POS_COEFFICIENT (%x)\n", pidff_set_condition[PID_POS_COEFFICIENT]);
 		pidff_set_signed(&pidff->set_condition[PID_POS_COEFFICIENT],
 				 effect->u.condition[i].right_coeff);
+		pr_debug("setting PID_NEG_COEFFICIENT (%x)\n", pidff_set_condition[PID_NEG_COEFFICIENT]);
 		pidff_set_signed(&pidff->set_condition[PID_NEG_COEFFICIENT],
 				 effect->u.condition[i].left_coeff);
+		pr_debug("setting PID_POS_SATURATION (%x)\n", pidff_set_condition[PID_POS_SATURATION]);
 		pidff_set(&pidff->set_condition[PID_POS_SATURATION],
 			  effect->u.condition[i].right_saturation);
+		pr_debug("setting PID_NEG_SATURATION (%x)\n", pidff_set_condition[PID_NEG_SATURATION]);
+
 		pidff_set(&pidff->set_condition[PID_NEG_SATURATION],
 			  effect->u.condition[i].left_saturation);
+		pr_debug("setting PID_DEAD_BAND (%x)\n", pidff_set_condition[PID_DEAD_BAND]);
+
 		pidff_set(&pidff->set_condition[PID_DEAD_BAND],
 			  effect->u.condition[i].deadband);
 		hid_hw_request(pidff->hid, pidff->reports[PID_SET_CONDITION],
