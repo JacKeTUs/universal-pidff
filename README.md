@@ -67,6 +67,51 @@ Best for debugging purposes, where you need frequently change codebase/branches
 To unload module:
 `sudo rmmod hid_universal_pidff`
 
+
+### Steam Deck automatic install
+```bash
+# first, let's set a password
+# (optional, skip if you already done this in the past)
+passwd deck
+
+# run installation script
+sudo sh -c "$(curl -fsSL https://raw.githubusercontent.com/JacKeTUs/universal-pidff/main/docs/steam-deck-install.sh)"
+```
+
+### Steam Deck manual install
+```bash
+# first, let's set a password
+# (optional, skip if you already done this in the past)
+passwd deck
+
+# then, let's disable read only state
+sudo steamos-readonly disable
+
+# initialise and populate keyring
+sudo pacman-key --init
+sudo pacman-key --populate archlinux
+sudo pacman-key --populate holo
+
+# install necessary stuff
+linux=$(pacman -Qsq linux-neptune | tail -n 1)
+sudo pacman -Syu --noconfirm base-devel fakeroot glibc git \
+    $linux $linux-headers linux-api-headers
+
+# download AUR packege
+wget https://aur.archlinux.org/cgit/aur.git/snapshot/universal-pidff-dkms-git.tar.gz
+tar -xf universal-pidff-dkms-git.tar.gz
+
+# finally install the driver itself
+cd universal-pidff-dkms-git
+makepkg -scri --noconfirm
+
+# optionally, remove things we needed during installation
+cd ..
+rm -rf universal-pidff-dkms-git*
+```
+
+And now, just reboot and enjoy!
+
 ### Testing
 1. Compile the module with `make debug`, this will enable printing a lot of kernel debug messages
 2. Start new terminal and run `journalctl -f -k` to monitor new kernel messages
