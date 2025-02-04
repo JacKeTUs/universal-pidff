@@ -2,6 +2,13 @@
 #ifndef __HID_IDS_H
 #define __HID_IDS_H
 
+/* Asetek SimSports */
+#define USB_VENDOR_ID_ASETEK		0x2433
+#define USB_DEVICE_ID_ASETEK_INVICTA	0xf300
+#define USB_DEVICE_ID_ASETEK_FORTE	0xf301
+#define USB_DEVICE_ID_ASETEK_LA_PRIMA	0xf303
+#define USB_DEVICE_ID_ASETEK_TK		0xf306
+
 /* Moza Racing */
 #define USB_VENDOR_ID_MOZA		0x346e
 #define USB_DEVICE_ID_MOZA_R3		0x0005
