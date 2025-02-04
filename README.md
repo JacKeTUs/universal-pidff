@@ -75,7 +75,16 @@ To unload module:
 passwd deck
 
 # run installation script
-sudo sh -c "$(curl -fsSL https://raw.githubusercontent.com/JacKeTUs/universal-pidff/main/docs/steam-deck-install.sh)"
+sudo sh -c "$(curl -fsSL https://raw.githubusercontent.com/JacKeTUs/universal-pidff/main/scripts/steam-deck-install.sh)"
+```
+#### Uninstall:
+```bash
+# and this is uninstall script if needed:
+sudo sh -c "$(curl -fsSL https://raw.githubusercontent.com/JacKeTUs/universal-pidff/main/scripts/steam-deck-uninstall.sh)"
+
+# optionally, remove your password
+# enter current one and leave the new password blank
+passwd deck
 ```
 
 ### Steam Deck manual install
@@ -111,6 +120,20 @@ rm -rf universal-pidff-dkms-git*
 ```
 
 And now, just reboot and enjoy!
+
+#### If you need to uninstall this driver and lock your deck again:
+```bash
+linux=$(pacman -Qsq linux-neptune | grep -e "[0-9]$" | tail -n 1)
+
+sudo pacman -Rcns hid-universal-pidff-dkms-git
+sudo pacman -Rcns $linux-headers fakeroot
+
+sudo steamos-readonly enable
+
+# optionally, remove your password
+# enter current one and leave the new password blank
+passwd deck
+```
 
 ### Testing
 1. Compile the module with `make debug`, this will enable printing a lot of kernel debug messages
