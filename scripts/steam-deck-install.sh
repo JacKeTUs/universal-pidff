@@ -37,6 +37,9 @@ sleep 2s
 cd universal-pidff-dkms-git
 sudo -u deck makepkg -scri --noconfirm
 
+echo ""
+echo "Again, don't worry about this ^"
+
 cd ../..
 rm -rf universal-pidff-install
 
