@@ -23,7 +23,8 @@ And that's basically it
 4. FFBeast Wheel, Joystick, Rudder
 5. PXN V10, V12, V12 Lite
 6. Lite Star GT978 FF
-7. ...
+7. Asetek Invicta, Forte, La Prima, Tony Kanaan
+8. ...
 
 ## What works?
 1. FFB (all effects from device descriptor)
@@ -193,6 +194,8 @@ Note 1: Tested and working version of DirectForce configuration tool is 0.9.4.6 
 
 Note 2: In order to play Damping/Friction/Inertia/Spring effects by ffbplay, you must enable `Use device and game effects` from dropdown menu for these in DirectForce configuration tool and save it to the wheelbase.
 
+### Asetek
+More info here: [asetek_wheelbase_cli repo](https://github.com/moonrail/asetek_wheelbase_cli)
 
 ## Known issues with the driver
 - Current limit of usable buttons is 160 (up from the Linux default of 80). Create an issue if you want this increased further.
