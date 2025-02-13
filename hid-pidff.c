@@ -1482,6 +1482,8 @@ int hid_pidff_init_with_quirks(struct hid_device *hid, u32 initial_quirks)
 	kfree(pidff);
 	return error;
 }
+/* Not needed for local compilation */
+/* EXPORT_SYMBOL_GPL(hid_pidff_init_with_quirks); */
 
 /*
  * Check if the device is PID and initialize it
