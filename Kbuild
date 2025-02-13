@@ -1,3 +1,3 @@
-obj-m := hid-universal-pidff.o
-hid-universal-pidff-y := hid-pidff-wrapper.o hid-pidff.o
+obj-m := hid_universal_pidff.o
+hid_universal_pidff-y := hid-universal-pidff.o hid-pidff.o
 ccflags-y := -Idrivers/hid

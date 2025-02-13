@@ -41,6 +41,7 @@
 */
 #define HID_PIDFF_QUIRK_PERIODIC_SINE_ONLY	BIT(4)
 
+/* Kernel ifndef not included as we have our own copy of hid-pidff */
 int hid_pidff_init(struct hid_device *hid);
 int hid_pidff_init_with_quirks(struct hid_device *hid, u32 initial_quirks);
 

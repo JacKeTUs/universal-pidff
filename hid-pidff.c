@@ -3,30 +3,27 @@
  *  Force feedback driver for USB HID PID compliant devices
  *
  *  Copyright (c) 2005, 2006 Anssi Hannula <anssi.hannula@gmail.com>
+ *  Upgraded 2025 by Oleg Makarenko and Tomasz Pakuła
  */
-
-/*
- */
-
-/* #define DEBUG */
 
 #define pr_fmt(fmt) KBUILD_MODNAME ": " fmt
 
+#include "hid-pidff.h"
 #include <linux/input.h>
 #include <linux/slab.h>
 #include <linux/usb.h>
 #include <linux/hid.h>
 #include <linux/minmax.h>
-#include "hid-pidff.h"
+
 
 #define	PID_EFFECTS_MAX		64
 #define	PID_INFINITE		U16_MAX
 
 /* Linux Force Feedback API uses miliseconds as time unit */
 #define FF_TIME_EXPONENT	-3
+#define FF_INFINITE		0
 
 /* Report usage table used to put reports into an array */
-
 #define PID_SET_EFFECT		0
 #define PID_EFFECT_OPERATION	1
 #define PID_DEVICE_GAIN		2
@@ -47,12 +44,12 @@ static const u8 pidff_reports[] = {
 	0x21, 0x77, 0x7d, 0x7f, 0x89, 0x90, 0x96, 0xab,
 	0x5a, 0x5f, 0x6e, 0x73, 0x74
 };
-
-/* device_control is really 0x95, but 0x96 specified as it is the usage of
-the only field in that report */
+/*
+ * device_control is really 0x95, but 0x96 specified
+ * as it is the usage of the only field in that report.
+ */
 
 /* PID special fields */
-
 #define	PID_EFFECT_TYPE			0x25
 #define	PID_DIRECTION			0x57
 #define	PID_EFFECT_OPERATION_ARRAY	0x78
@@ -60,7 +57,6 @@ the only field in that report */
 #define	PID_DEVICE_CONTROL_ARRAY	0x96
 
 /* Value usage tables used to put fields and values into arrays */
-
 #define PID_EFFECT_BLOCK_INDEX	0
 
 #define PID_DURATION		1
@@ -118,7 +114,6 @@ static const u8 pidff_device_gain[] = { 0x7e };
 static const u8 pidff_pool[] = { 0x80, 0x83, 0xa9 };
 
 /* Special field key tables used to put special field keys into arrays */
-
 #define PID_ENABLE_ACTUATORS	0
 #define PID_DISABLE_ACTUATORS	1
 #define PID_STOP_ALL_EFFECTS	2
@@ -143,7 +138,8 @@ static const u8 pidff_effect_types[] = {
 
 #define PID_BLOCK_LOAD_SUCCESS	0
 #define PID_BLOCK_LOAD_FULL	1
-static const u8 pidff_block_load_status[] = { 0x8c, 0x8d };
+#define PID_BLOCK_LOAD_ERROR	2
+static const u8 pidff_block_load_status[] = { 0x8c, 0x8d, 0x8e};
 
 #define PID_EFFECT_START	0
 #define PID_EFFECT_STOP		1
@@ -175,8 +171,10 @@ struct pidff_device {
 	struct pidff_usage effect_operation[sizeof(pidff_effect_operation)];
 	struct pidff_usage block_free[sizeof(pidff_block_free)];
 
-	/* Special field is a field that is not composed of
-	   usage<->value pairs that pidff_usage values are */
+	/*
+	 * Special field is a field that is not composed of
+	 * usage<->value pairs that pidff_usage values are
+	 */
 
 	/* Special field in create_new_effect */
 	struct hid_field *create_new_effect_type;
@@ -221,7 +219,7 @@ static s32 pidff_clamp(s32 i, struct hid_field *field)
 static int pidff_rescale(int i, int max, struct hid_field *field)
 {
 	return i * (field->logical_maximum - field->logical_minimum) / max +
-	    field->logical_minimum;
+		field->logical_minimum;
 }
 
 /*
@@ -281,10 +279,8 @@ static void pidff_set_time(struct pidff_usage *usage, u16 time)
 
 static void pidff_set_duration(struct pidff_usage *usage, u16 duration)
 {
-	/* Convert infinite length from Linux API (0)
-	   to PID standard (NULL) if needed */
-	if (duration == 0)
-		duration = PID_INFINITE;
+	/* Infinite value conversion from Linux API -> PID */
+	if (duration == FF_INFINITE)
 
 	if (duration == PID_INFINITE) {
 		pr_debug("setting infinite duration");
@@ -302,16 +298,16 @@ static void pidff_set_envelope_report(struct pidff_device *pidff,
 				      struct ff_envelope *envelope)
 {
 	pidff->set_envelope[PID_EFFECT_BLOCK_INDEX].value[0] =
-	    pidff->block_load[PID_EFFECT_BLOCK_INDEX].value[0];
+		pidff->block_load[PID_EFFECT_BLOCK_INDEX].value[0];
 
 	pidff->set_envelope[PID_ATTACK_LEVEL].value[0] =
-	    pidff_rescale(envelope->attack_level >
-			  S16_MAX ? S16_MAX : envelope->attack_level, S16_MAX,
-			  pidff->set_envelope[PID_ATTACK_LEVEL].field);
+		pidff_rescale(envelope->attack_level >
+			S16_MAX ? S16_MAX : envelope->attack_level, S16_MAX,
+			pidff->set_envelope[PID_ATTACK_LEVEL].field);
 	pidff->set_envelope[PID_FADE_LEVEL].value[0] =
-	    pidff_rescale(envelope->fade_level >
-			  S16_MAX ? S16_MAX : envelope->fade_level, S16_MAX,
-			  pidff->set_envelope[PID_FADE_LEVEL].field);
+		pidff_rescale(envelope->fade_level >
+			S16_MAX ? S16_MAX : envelope->fade_level, S16_MAX,
+			pidff->set_envelope[PID_FADE_LEVEL].field);
 
 	pidff_set_time(&pidff->set_envelope[PID_ATTACK_TIME],
 			envelope->attack_length);
@@ -609,33 +605,25 @@ static void pidff_reset(struct pidff_device *pidff)
 }
 
 /*
- * Refetch pool report
+ * Fetch pool report
  */
 static void pidff_fetch_pool(struct pidff_device *pidff)
 {
-	// Fetch pool
-	hid_hw_request(pidff->hid, pidff->reports[PID_POOL], HID_REQ_GET_REPORT);
-	hid_hw_wait(pidff->hid);
+	int i;
+	struct hid_device *hid = pidff->hid;
 
-	if (!pidff->pool[PID_SIMULTANEOUS_MAX].value) {
-		hid_dbg(pidff->hid, "PID_SIMULTANEOUS_MAX is null\n");	
-		return;
+	/* Repeat if PID_SIMULTANEOUS_MAX < 2 to make sure it's correct */
+	for(i = 0; i < 20; i++) {
+		hid_hw_request(hid, pidff->reports[PID_POOL], HID_REQ_GET_REPORT);
+		hid_hw_wait(hid);
+
+		if (!pidff->pool[PID_SIMULTANEOUS_MAX].value)
+			return;
+		if (pidff->pool[PID_SIMULTANEOUS_MAX].value[0] >= 2)
+			return;
 	}
-
-	int i = 0;
-	while (pidff->pool[PID_SIMULTANEOUS_MAX].value[0] < 2) {
-		hid_dbg(pidff->hid, "pid_pool requested again\n");
-		hid_hw_request(pidff->hid, pidff->reports[PID_POOL],
-				HID_REQ_GET_REPORT);
-		hid_hw_wait(pidff->hid);
-
-		if (i++ > 20) {
-			hid_warn(pidff->hid,
-				 "device reports %d simultaneous effects\n",
-				 pidff->pool[PID_SIMULTANEOUS_MAX].value[0]);
-			break;
-		}
-	}
+	hid_warn(hid, "device reports %d simultaneous effects\n",
+		 pidff->pool[PID_SIMULTANEOUS_MAX].value[0]);
 }
 
 /*
@@ -685,6 +673,11 @@ static int pidff_request_effect_upload(struct pidff_device *pidff, int efnum)
 				pidff->block_load[PID_RAM_POOL_AVAILABLE].value[0] : -1);
 			return -ENOSPC;
 		}
+		if (pidff->block_load_status->value[0] ==
+		    pidff->status_id[PID_BLOCK_LOAD_ERROR]) {
+			hid_dbg(pidff->hid, "device error during effect creation\n");
+			return -EREMOTEIO;
+		}
 	}
 	hid_err(pidff->hid, "pid_block_load failed 60 times\n");
 	return -EIO;
@@ -716,9 +709,7 @@ static void pidff_playback_pid(struct pidff_device *pidff, int pid_id, int n)
 static int pidff_playback(struct input_dev *dev, int effect_id, int value)
 {
 	struct pidff_device *pidff = dev->ff->private;
-
 	pidff_playback_pid(pidff, pidff->pid_id[effect_id], value);
-
 	return 0;
 }
 
@@ -748,8 +739,11 @@ static int pidff_erase_effect(struct input_dev *dev, int effect_id)
 
 	hid_dbg(pidff->hid, "starting to erase %d/%d\n",
 		effect_id, pidff->pid_id[effect_id]);
-	/* Wait for the queue to clear. We do not want a full fifo to
-	   prevent the effect removal. */
+
+	/*
+	 * Wait for the queue to clear. We do not want
+	 * a full fifo to prevent the effect removal.
+	 */
 	hid_hw_wait(pidff->hid);
 	pidff_playback_pid(pidff, pid_id, 0);
 	pidff_erase_pid(pidff, pid_id);
@@ -1173,10 +1167,6 @@ static int pidff_find_special_fields(struct pidff_device *pidff)
 		return -1;
 	}
 
-	pidff_find_special_keys(pidff->control_id, pidff->device_control,
-				pidff_device_control,
-				sizeof(pidff_device_control));
-
 	PIDFF_FIND_SPECIAL_KEYS(control_id, device_control, device_control);
 
 	if (!PIDFF_FIND_SPECIAL_KEYS(type_id, create_new_effect_type,
@@ -1255,7 +1245,6 @@ static int pidff_find_effects(struct pidff_device *pidff,
 		set_bit(FF_FRICTION, dev->ffbit);
 
 	return 0;
-
 }
 
 #define PIDFF_FIND_FIELDS(name, report, strict) \
@@ -1386,12 +1375,10 @@ static int pidff_check_autocenter(struct pidff_device *pidff,
 		hid_notice(pidff->hid,
 			   "device has unknown autocenter control method\n");
 	}
-
 	pidff_erase_pid(pidff,
 			pidff->block_load[PID_EFFECT_BLOCK_INDEX].value[0]);
 
 	return 0;
-
 }
 
 /*
@@ -1495,6 +1482,8 @@ int hid_pidff_init_with_quirks(struct hid_device *hid, u32 initial_quirks)
 	kfree(pidff);
 	return error;
 }
+/* Not needed for local compilation */
+/* EXPORT_SYMBOL_GPL(hid_pidff_init_with_quirks); */
 
 /*
  * Check if the device is PID and initialize it
