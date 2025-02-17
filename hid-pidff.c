@@ -281,6 +281,7 @@ static void pidff_set_duration(struct pidff_usage *usage, u16 duration)
 {
 	/* Infinite value conversion from Linux API -> PID */
 	if (duration == FF_INFINITE)
+		duration = PID_INFINITE;
 
 	if (duration == PID_INFINITE) {
 		pr_debug("setting infinite duration");
@@ -690,6 +691,8 @@ static void pidff_playback_pid(struct pidff_device *pidff, int pid_id, int n)
 {
 	pidff->effect_operation[PID_EFFECT_BLOCK_INDEX].value[0] = pid_id;
 
+	hid_dbg(pidff->hid, "Playing PID effect %d", pid_id);
+
 	if (n == 0) {
 		pidff->effect_operation_status->value[0] =
 			pidff->operation_id[PID_EFFECT_STOP];
@@ -709,6 +712,7 @@ static void pidff_playback_pid(struct pidff_device *pidff, int pid_id, int n)
 static int pidff_playback(struct input_dev *dev, int effect_id, int value)
 {
 	struct pidff_device *pidff = dev->ff->private;
+	hid_dbg(pidff->hid, "Requesting playback on FF effect %d", effect_id);
 	pidff_playback_pid(pidff, pidff->pid_id[effect_id], value);
 	return 0;
 }
