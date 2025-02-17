@@ -218,8 +218,9 @@ static s32 pidff_clamp(s32 i, struct hid_field *field)
  */
 static int pidff_rescale(int i, int max, struct hid_field *field)
 {
-	return i * (field->logical_maximum - field->logical_minimum) / max +
-		field->logical_minimum;
+	int j = i * (field->logical_maximum - field->logical_minimum) / max + field->logical_minimum;
+	pr_debug("rescaled from %d to %d", i, j);
+	return j;
 }
 
 /*
