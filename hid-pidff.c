@@ -286,7 +286,7 @@ static void pidff_set_duration(struct pidff_usage *usage, u16 duration)
 
 	if (duration == PID_INFINITE) {
 		pr_debug("setting infinite duration");
-		usage->value[0] = PID_INFINITE;
+		usage->value[0] = (1U << usage->field->report_size) - 1;
 		return;
 	}
 
