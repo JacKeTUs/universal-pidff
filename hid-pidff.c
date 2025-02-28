@@ -564,6 +564,10 @@ static void pidff_set_device_control(struct pidff_device *pidff, int field)
 	int i, index;
 	int field_index = pidff->control_id[field];
 
+	/*
+	 * Search is psermissive, some fields coud be missing
+	 * HID arrays have 1-based indexing
+	 */
 	if (field_index < 1)
 		return;
 
