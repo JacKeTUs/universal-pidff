@@ -564,6 +564,10 @@ static void pidff_set_device_control(struct pidff_device *pidff, int field)
 	int i, index;
 	int field_index = pidff->control_id[field];
 
+	/*
+	 * Search is permissive, some fields could be missing
+	 * HID arrays have 1-based indexing
+	 */
 	if (field_index < 1)
 		return;
 
@@ -709,7 +713,7 @@ static void pidff_playback_pid(struct pidff_device *pidff, int pid_id, int n)
 	} else {
 		pidff->effect_operation_status->value[0] =
 			pidff->operation_id[PID_EFFECT_START];
-		pidff->effect_operation[PID_LOOP_COUNT].value[0] = 
+		pidff->effect_operation[PID_LOOP_COUNT].value[0] =
 			pidff_clamp(n, pidff->effect_operation[PID_LOOP_COUNT].field);
 	}
 
