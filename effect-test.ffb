@@ -8,7 +8,7 @@
 
 06000000 # Spring
 06000000 > REMOVE 0
-06000000 > UPLOAD id:-1 dir:16384 type:SPRING left_coeff:10000 right_coeff:10000
+06000000 > UPLOAD id:-1 dir:16384 type:SPRING left_coeff:32000 right_coeff:32000
 06000000 < 0 id:0
 06000000 > PLAY 0 1
 
@@ -69,12 +69,12 @@
 
 33000000 # Sine constant force emulation left
 33000000 > REMOVE 0
-33000000 > UPLOAD id:-1 dir:16384 type:PERIODIC waveform:SINE period:1000 magnitude:0 offset:8000
+33000000 > UPLOAD id:-1 dir:16384 type:PERIODIC waveform:SINE period:1000 magnitude:0 offset:16000
 33000000 < 0 id:0
 33000000 > PLAY 0 1
 
 36000000 # Sine constant force emulation right
-36000000 > UPLOAD id:0 dir:16384 type:PERIODIC waveform:SINE period:1000 magnitude:0 offset:-8000
+36000000 > UPLOAD id:0 dir:16384 type:PERIODIC waveform:SINE period:1000 magnitude:0 offset:-16000
 39000000 > STOP 0
 39000000 > REMOVE 0
 
