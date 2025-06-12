@@ -49,7 +49,6 @@ static int universal_pidff_input_mapping(struct hid_device *hdev,
 	return 1;
 }
 
-
 /*
  * Check if the device is PID and initialize it
  * Add quirks after initialisation
@@ -58,6 +57,7 @@ static int universal_pidff_probe(struct hid_device *hdev,
 				 const struct hid_device_id *id)
 {
 	int i, error;
+
 	error = hid_parse(hdev);
 	if (error) {
 		hid_err(hdev, "HID parse failed\n");
@@ -91,9 +91,9 @@ static int universal_pidff_probe(struct hid_device *hdev,
 	}
 
 	/* Check if HID_PID support is enabled */
-	int (*init_function)(struct hid_device *, __u32);
-	init_function = hid_pidff_init_with_quirks;
+	int (*init_function)(struct hid_device *, u32);
 
+	init_function = hid_pidff_init_with_quirks;
 	if (!init_function) {
 		hid_warn(hdev, "HID_PID support not enabled!\n");
 		return 0;
@@ -178,7 +178,7 @@ static const struct hid_device_id universal_pidff_devices[] = {
 		.driver_data = HID_PIDFF_QUIRK_PERIODIC_SINE_ONLY },
 	{ HID_USB_DEVICE(USB_VENDOR_ID_LITE_STAR, USB_DEVICE_ID_PXN_V12_LITE_2),
 		.driver_data = HID_PIDFF_QUIRK_PERIODIC_SINE_ONLY },
-	{ HID_USB_DEVICE(USB_VENDOR_ID_LITE_STAR, USB_DEVICE_LITE_STAR_GT987_FF),
+	{ HID_USB_DEVICE(USB_VENDOR_ID_LITE_STAR, USB_DEVICE_ID_LITE_STAR_GT987),
 		.driver_data = HID_PIDFF_QUIRK_PERIODIC_SINE_ONLY },
 	{ HID_USB_DEVICE(USB_VENDOR_ID_ASETEK, USB_DEVICE_ID_ASETEK_INVICTA) },
 	{ HID_USB_DEVICE(USB_VENDOR_ID_ASETEK, USB_DEVICE_ID_ASETEK_FORTE) },
@@ -200,7 +200,7 @@ static struct hid_driver universal_pidff = {
 };
 module_hid_driver(universal_pidff);
 
-MODULE_DESCRIPTION("Universal driver for PID Force Feedback devices");
+MODULE_DESCRIPTION("Universal driver for USB PID Force Feedback devices");
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Oleg Makarenko <oleg@makarenk.ooo>");
 MODULE_AUTHOR("Tomasz Pakuła <tomasz.pakula.oficjalny@gmail.com>");
