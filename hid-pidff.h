@@ -41,6 +41,14 @@
 */
 #define HID_PIDFF_QUIRK_PERIODIC_SINE_ONLY	BIT(4)
 
+/*
+ * Some devices like VRS DirectForce Pro 20 are missing the direction
+ * field in their descriptor. Though it's not optional, direction value
+ * for one-axis effects ahould always be 0x4000. The only known exception
+ * is Forza Horizon that uses direction instead of negative magnitude values.
+*/
+#define HID_PIDFF_QUIRK_MISSING_DIRECTION	BIT(5)
+
 /* Kernel ifndef not included as we have our own copy of hid-pidff */
 int hid_pidff_init(struct hid_device *hid);
 int hid_pidff_init_with_quirks(struct hid_device *hid, u32 initial_quirks);

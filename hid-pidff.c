@@ -295,6 +295,19 @@ static void pidff_set_duration(struct pidff_usage *usage, u16 duration)
 	pidff_set_time(usage, duration);
 }
 
+static void pidff_set_direction(struct pidff_device *pidff, u16 direction)
+{
+	if (pidff->quirks & HID_PIDFF_QUIRK_MISSING_DIRECTION)
+		return;
+
+	/* Use fixed direction if needed */
+	if (pidff->quirks & HID_PIDFF_QUIRK_FIX_WHEEL_DIRECTION)
+		direction = PIDFF_FIXED_WHEEL_DIRECTION;
+
+	pidff->effect_direction->value[0] =
+		pidff_rescale(direction, U16_MAX, pidff->effect_direction);
+}
+
 /*
  * Send envelope report to the device
  */
@@ -394,12 +407,7 @@ static void pidff_set_effect_report(struct pidff_device *pidff,
 	pidff->set_effect[PID_GAIN].value[0] =
 		pidff->set_effect[PID_GAIN].field->logical_maximum;
 	pidff->set_effect[PID_DIRECTION_ENABLE].value[0] = 1;
-
-	/* Use fixed direction if needed */
-	pidff->effect_direction->value[0] = pidff_rescale(
-		pidff->quirks & HID_PIDFF_QUIRK_FIX_WHEEL_DIRECTION ?
-		PIDFF_FIXED_WHEEL_DIRECTION : effect->direction,
-		U16_MAX, pidff->effect_direction);
+	pidff_set_direction(pidff, effect->direction);
 
 	/* Omit setting delay field if it's missing */
 	if (!(pidff->quirks & HID_PIDFF_QUIRK_MISSING_DELAY))
@@ -1167,8 +1175,9 @@ static int pidff_find_special_fields(struct pidff_device *pidff)
 	}
 
 	if (!pidff->effect_direction) {
-		hid_err(pidff->hid, "direction field not found\n");
-		return -1;
+		pidff->quirks |= HID_PIDFF_QUIRK_MISSING_DIRECTION;
+		hid_warn(pidff->hid, "%s %s", "direction field not found,",
+			 "adding MISSING_DIRECTION quirk\n");
 	}
 
 	if (!pidff->device_control) {
