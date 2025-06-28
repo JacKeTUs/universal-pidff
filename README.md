@@ -69,7 +69,7 @@ To unload module:
 `sudo rmmod hid_universal_pidff`
 
 
-### Steam Deck automatic install
+### Steam Deck/SteamOS automatic install
 ```bash
 # first, let's set a password
 # (optional, skip if you already done this in the past)
@@ -88,7 +88,7 @@ sudo sh -c "$(curl -fsSL https://raw.githubusercontent.com/JacKeTUs/universal-pi
 passwd deck
 ```
 
-### Steam Deck manual install
+### Steam Deck/SteamOS manual install
 ```bash
 # first, let's set a password
 # (optional, skip if you already done this in the past)
