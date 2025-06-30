@@ -8,6 +8,9 @@ default: clean
 debug: clean
 	$(MAKE) -C $(KDIR) M=$$PWD EXTRA_CFLAGS="-g -DDEBUG"
 
+openffb: clean
+	$(MAKE) -C $(KDIR) M=$$PWD EXTRA_CFLAGS="-DOPENFFBOARD"
+
 clean:
 	$(MAKE) -C $(KDIR) M=$$PWD clean
 

@@ -126,10 +126,10 @@ static int universal_pidff_input_configured(struct hid_device *hdev,
 		if (!test_bit(axis, input->absbit))
 			continue;
 
-		input_set_abs_params(input, axis,
+		/*input_set_abs_params(input, axis,
 			input->absinfo[axis].minimum,
 			input->absinfo[axis].maximum,
-			axis == ABS_X ? 0 : 8, 0);
+			axis == ABS_X ? 0 : 8, 0);*/
 	}
 
 	/* Remove fuzz and deadzone from the second joystick axis */
@@ -143,6 +143,15 @@ static int universal_pidff_input_configured(struct hid_device *hdev,
 }
 
 static const struct hid_device_id universal_pidff_devices[] = {
+	{ HID_USB_DEVICE(USB_VENDOR_ID_SIMAGIC_ALPHA, USB_PRODUCT_ID_SIMAGIC_ALPHA),
+		.driver_data = HID_PIDFF_QUIRK_SKIP_PID_POOL },
+	{ HID_USB_DEVICE(USB_VENDOR_ID_SIMAGIC_NEO, USB_PRODUCT_ID_SIMAGIC_NEO_1),
+		.driver_data = HID_PIDFF_QUIRK_SKIP_PID_POOL },
+	{ HID_USB_DEVICE(USB_VENDOR_ID_SIMAGIC_NEO, USB_PRODUCT_ID_SIMAGIC_NEO_2),
+		.driver_data = HID_PIDFF_QUIRK_SKIP_PID_POOL },
+	{ HID_USB_DEVICE(USB_VENDOR_ID_SIMAGIC_NEO, USB_PRODUCT_ID_SIMAGIC_NEO_3),
+		.driver_data = HID_PIDFF_QUIRK_SKIP_PID_POOL },
+
 	{ HID_USB_DEVICE(USB_VENDOR_ID_MOZA, USB_DEVICE_ID_MOZA_R3),
 		.driver_data = HID_PIDFF_QUIRK_FIX_WHEEL_DIRECTION },
 	{ HID_USB_DEVICE(USB_VENDOR_ID_MOZA, USB_DEVICE_ID_MOZA_R3_2),
