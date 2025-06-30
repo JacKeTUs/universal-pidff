@@ -5,6 +5,9 @@ Linux PIDFF driver with useful patches for initialization of FFB devices. Primar
 Check out Linux Simracing community channel on [Matrix](https://matrix.to/#/#simracing:matrix.org)
 
 ## What's different between this and native pidff driver?
+> [!NOTE]
+> This driver was upstreamed into kernel from versions 6.12.24+, 6.13.12+, 6.14.3+. 6.15+ and greater, so with recent kernel there is no functional differences. You can install driver from this repo if you want to test some new functions/devices and/or debug something specific.
+
 That driver allows most DirectDrive wheelbases to initialize and work.
 Most of the DirectDrive wheelbases are basically DirectInput wheels, but with some caveats, which Windows allows, but pidff doesn't.
 In that repository - pidff driver with some changes, which allows most of the DirectDrive wheelbases to work.
@@ -26,15 +29,18 @@ And that's basically it
 7. Asetek Invicta, Forte, La Prima, Tony Kanaan
 8. ...
 
+Kernel `pidff` driver will try to probe all devices with HID PID descriptor, so even if your device isn't listed here, it can probably just work (with recent kernel version).
+Version of the driver in this repository will probe only devices with selected VID/PIDs.
+
 ## What works?
-1. FFB (all effects from device descriptor)
-2. All inputs (wheel axis, buttons)
+1. FFB (all effects defined from device descriptor)
+2. All inputs (wheel axis, buttons, passthrough axis/buttons for wheel (e.g. Moza))
 
 
 ## What does not work?
-1. Telemetry functions. They are handeled by [Monocoque](https://github.com/Spacefreak18/monocoque)
+1. Telemetry functions. It does not depend on the driver itself. Telemetry LEDs/shakers can be handled by [Monocoque](https://github.com/Spacefreak18/monocoque).
 2. `Firmware Update` function. Use Windows PC or Windows VM at the moment.
-3. Setup through proprietary software. May require [some tweaking](#how-to-set-up-a-base-parameters)
+3. Setup through proprietary software may or may not work. It does not depend on the driver itself. May require [some tweaking](#how-to-set-up-a-base-parameters) in corresponding Wine prefix.
 
 ## How to install this driver?
 You can install it through AUR package, through DKMS or manually.
@@ -68,8 +74,8 @@ Best for debugging purposes, where you need frequently change codebase/branches
 To unload module:
 `sudo rmmod hid_universal_pidff`
 
-
-### Steam Deck/SteamOS automatic install
+### Steam Deck/SteamOS
+#### Automatic install
 ```bash
 # first, let's set a password
 # (optional, skip if you already done this in the past)
@@ -78,7 +84,7 @@ passwd deck
 # run installation script
 sudo sh -c "$(curl -fsSL https://raw.githubusercontent.com/JacKeTUs/universal-pidff/main/scripts/steam-deck-install.sh)"
 ```
-#### Uninstall:
+#### Automatic uninstall:
 ```bash
 # and this is uninstall script if needed:
 sudo sh -c "$(curl -fsSL https://raw.githubusercontent.com/JacKeTUs/universal-pidff/main/scripts/steam-deck-uninstall.sh)"
@@ -88,7 +94,7 @@ sudo sh -c "$(curl -fsSL https://raw.githubusercontent.com/JacKeTUs/universal-pi
 passwd deck
 ```
 
-### Steam Deck/SteamOS manual install
+#### Manual install
 ```bash
 # first, let's set a password
 # (optional, skip if you already done this in the past)
@@ -191,7 +197,7 @@ Then you need to force VRS software to use hidraw, not SDL, to find devices:
 
     `WINEPREFIX=$HOME/.vrs-wine wine VRS.exe` - launch VRS software from installation directory.
 
-Note 1: Tested and working version of DirectForce configuration tool is 0.9.4.6 (firmware upgrade not tested, probably does not work)
+Note 1: Tested and working version of DirectForce configuration tool is 0.9.8.7 (firmware upgrade does not work, will put the wheelbase into a bootloop, please use Windows for fw upgrade for now)
 
 Note 2: In order to play Damping/Friction/Inertia/Spring effects by ffbplay, you must enable `Use device and game effects` from dropdown menu for these in DirectForce configuration tool and save it to the wheelbase.
 
