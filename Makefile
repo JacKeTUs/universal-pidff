@@ -1,4 +1,4 @@
-KVERSION := `uname -r`
+KVERSION := $(shell uname -r)
 KDIR := /lib/modules/${KVERSION}/build
 MAKEFLAGS+="-j $(shell nproc)"
 MODULE_LOADED := $(shell lsmod | grep hid_universal_pidff)
