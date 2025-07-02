@@ -31,7 +31,7 @@
 /*
  * Ignore direction and always set 16384 (0x4000)
  */
-#define HID_PIDFF_QUIRK_FIX_WHEEL_DIRECTION	BIT(3)
+#define HID_PIDFF_QUIRK_FIX_CONDITIONAL_DIRECTION	BIT(3)
 
 /*
  * Some devices have all the periodic effects in their descriptors
