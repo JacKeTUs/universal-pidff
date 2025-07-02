@@ -301,7 +301,7 @@ static void pidff_set_effect_direction(struct pidff_device *pidff,
 	u16 direction = effect->direction;
 
 	/* Use fixed direction if needed */
-	if (pidff->quirks & HID_PIDFF_QUIRK_FIX_WHEEL_DIRECTION) {
+	if (pidff->quirks & HID_PIDFF_QUIRK_FIX_CONDITIONAL_DIRECTION) {
 		switch(effect->type) {
 		case FF_SPRING:
 		case FF_DAMPER:
