@@ -1,12 +1,13 @@
 KVERSION := `uname -r`
 KDIR := /lib/modules/${KVERSION}/build
+MAKEFLAGS+="-j $(shell nproc)"
 MODULE_LOADED := $(shell lsmod | grep hid_universal_pidff)
 
 default: clean
 	$(MAKE) -C $(KDIR) M=$$PWD
 
 debug: clean
-	$(MAKE) -C $(KDIR) M=$$PWD EXTRA_CFLAGS="-g -DDEBUG"
+	$(MAKE) -C $(KDIR) M=$$PWD ccflags-y+="-g -DDEBUG"
 
 clean:
 	$(MAKE) -C $(KDIR) M=$$PWD clean
@@ -17,7 +18,7 @@ install: default
 
 unload:
 	@if [ "$(MODULE_LOADED)" != "" ]; then\
-		rmmod hid_universal_pidff;\
+		rmmod -f hid_universal_pidff;\
 	fi
 
 load: unload
