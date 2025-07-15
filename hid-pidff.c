@@ -141,7 +141,7 @@ static const u8 pidff_effect_types[] = {
 #define PID_BLOCK_LOAD_SUCCESS	0
 #define PID_BLOCK_LOAD_FULL	1
 #define PID_BLOCK_LOAD_ERROR	2
-static const u8 pidff_block_load_status[] = { 0x8c, 0x8d, 0x8e};
+static const u8 pidff_block_load_status[] = { 0x8c, 0x8d, 0x8e };
 
 #define PID_EFFECT_START	0
 #define PID_EFFECT_STOP		1
@@ -613,16 +613,6 @@ static void pidff_set_device_control(struct pidff_device *pidff, int field)
 }
 
 /*
- * Modify actuators state
- */
-static void pidff_set_actuators(struct pidff_device *pidff, bool enable)
-{
-	hid_dbg(pidff->hid, "%s actuators\n", enable ? "enable" : "disable");
-	pidff_set_device_control(pidff,
-		enable ? PID_ENABLE_ACTUATORS : PID_DISABLE_ACTUATORS);
-}
-
-/*
  * Reset the device, stop all effects, enable actuators
  */
 static void pidff_reset(struct pidff_device *pidff)
@@ -633,7 +623,7 @@ static void pidff_reset(struct pidff_device *pidff)
 	pidff->effect_count = 0;
 
 	pidff_set_device_control(pidff, PID_STOP_ALL_EFFECTS);
-	pidff_set_actuators(pidff, 1);
+	pidff_set_device_control(pidff, PID_ENABLE_ACTUATORS);
 }
 
 /*
