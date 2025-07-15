@@ -23,3 +23,8 @@ unload:
 
 load: unload
 	insmod hid_universal_pidff.ko
+
+test:
+	$(MAKE) debug
+	$(MAKE) load
+	$(MAKE) clean
