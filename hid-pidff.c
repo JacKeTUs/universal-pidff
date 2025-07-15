@@ -205,6 +205,14 @@ struct pidff_device {
 	u8 effect_count;
 };
 
+static int pidff_is_effect_conditional(struct ff_effect *effect)
+{
+	return effect->type == FF_SPRING  ||
+	       effect->type == FF_DAMPER  ||
+	       effect->type == FF_INERTIA ||
+	       effect->type == FF_FRICTION;
+}
+
 /*
  * Clamp value for a given field
  */
@@ -301,18 +309,9 @@ static void pidff_set_effect_direction(struct pidff_device *pidff,
 	u16 direction = effect->direction;
 
 	/* Use fixed direction if needed */
-	if (pidff->quirks & HID_PIDFF_QUIRK_FIX_CONDITIONAL_DIRECTION) {
-		switch(effect->type) {
-		case FF_SPRING:
-		case FF_DAMPER:
-		case FF_INERTIA:
-		case FF_FRICTION:
-			direction = PIDFF_FIXED_WHEEL_DIRECTION;
-			pr_debug("fixing conditional direction to 0x%x",
-				 PIDFF_FIXED_WHEEL_DIRECTION);
-			break;
-		}
-	}
+	if (pidff->quirks & HID_PIDFF_QUIRK_FIX_CONDITIONAL_DIRECTION &&
+	    pidff_is_effect_conditional(effect))
+		direction = PIDFF_FIXED_WHEEL_DIRECTION;
 
 	pidff->effect_direction->value[0] =
 		pidff_rescale(direction, U16_MAX, pidff->effect_direction);
