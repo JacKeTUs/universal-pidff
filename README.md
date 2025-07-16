@@ -143,11 +143,10 @@ passwd deck
 ```
 
 ### Testing
-1. Compile the module with `make debug`, this will enable printing a lot of kernel debug messages
-2. Load the module with `sudo make load`. This will automatically unload previous versions.
-3. Start new terminal and run `journalctl -f -k` to monitor new kernel messages
-4. Connect wheelbase via USB to your PC
-5. To test the supported effects, use ffbplay from [ffbtools](https://github.com/berarma/ffbtools) and play the included [effect-test.ffb](./effect-test.ffb) file e.g.
+1. Use the `test` make target as root. `sudo make test` builds module with debug, loads it and cleans the working directory.
+2. Start new terminal and run `journalctl -f -k` to monitor new kernel messages
+3. Connect wheelbase via USB to your PC
+4. To test the supported effects, use ffbplay from [ffbtools](https://github.com/berarma/ffbtools) and play the included [effect-test.ffb](./effect-test.ffb) file e.g.
 ```
 <path to built ffbplay>/ffbplay -d /dev/input/by-id/usb-<wheelbase-id> ./effect-test.ffb
 ```
