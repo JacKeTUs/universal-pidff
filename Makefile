@@ -9,6 +9,9 @@ default: clean
 debug: clean
 	$(MAKE) -C $(KDIR) M=$$PWD ccflags-y+="-g -DDEBUG"
 
+autocenter-test:
+	$(MAKE) debug ccflags-y+="-DFF_AUTOCENTER_TEST"
+
 clean:
 	$(MAKE) -C $(KDIR) M=$$PWD clean
 
