@@ -14,7 +14,7 @@
 #include <linux/usb.h>
 #include <linux/hid.h>
 #include <linux/minmax.h>
-
+#include <linux/workqueue.h>
 
 #define	PID_EFFECTS_MAX		64
 #define	PID_INFINITE		U16_MAX
@@ -147,18 +147,43 @@ static const u8 pidff_block_load_status[] = { 0x8c, 0x8d, 0x8e};
 #define PID_EFFECT_STOP		1
 static const u8 pidff_effect_operation_status[] = { 0x79, 0x7b };
 
-/* Polar direction 90 degrees (East) */
-#define PIDFF_FIXED_WHEEL_DIRECTION	0x4000
+enum pid_cardinal_directions {
+	PID_DIRECTION_NORTH = 0x0000,
+	PID_DIRECTION_EAST  = 0x4000,
+	PID_DIRECTION_SOUTH = 0x8000,
+	PID_DIRECTION_WEST  = 0xc000,
+};
+#define PIDFF_FIXED_WHEEL_DIRECTION	PID_DIRECTION_EAST
+
+enum pidff_autocenter_method {
+	PIDFF_AUTOCENTER_NONE,
+	PIDFF_AUTOCENTER_OLD,
+	PIDFF_AUTOCENTER_FF,
+};
 
 struct pidff_usage {
 	struct hid_field *field;
 	s32 *value;
 };
 
+struct pidff_autocenter {
+	struct input_dev *dev;
+	struct file file;
+
+	enum pidff_autocenter_method method;
+
+	int friction_id;
+	int spring_id;
+	u16 magnitude;
+};
+
 struct pidff_device {
 	struct hid_device *hid;
 
 	struct hid_report *reports[sizeof(pidff_reports)];
+
+	struct pidff_autocenter autocenter;
+	struct work_struct autocenter_work;
 
 	struct pidff_usage set_effect[sizeof(pidff_set_effect)];
 	struct pidff_usage set_envelope[sizeof(pidff_set_envelope)];
@@ -958,12 +983,113 @@ static void pidff_autocenter(struct pidff_device *pidff, u16 magnitude)
 			HID_REQ_SET_REPORT);
 }
 
+static void pidff_autocenter_ff_disable(struct input_dev *dev)
+{
+	struct pidff_device *pidff = dev->ff->private;
+	struct pidff_autocenter *center = &pidff->autocenter;
+
+	if (pidff->autocenter.spring_id > -1) {
+		input_ff_erase(dev, center->spring_id, &center->file);
+		center->spring_id = -1;
+	}
+	if (pidff->autocenter.friction_id > -1) {
+		input_ff_erase(dev, center->friction_id, &center->file);
+		center->friction_id = -1;
+	}
+	pr_debug("%s: Autocenter disabled\n", __func__);
+}
+
+/*
+ * Force Feedback-based autocenter. Applies friction + spring effects.
+ */
+static void pidff_autocenter_ff(struct input_dev *dev)
+{
+	struct pidff_device *pidff = dev->ff->private;
+	struct pidff_autocenter *center = &pidff->autocenter;
+	u16 magnitude = center->magnitude;
+	u16 spring_magnitude = magnitude / 4;
+	int err;
+
+	if (!magnitude) {
+		pidff_autocenter_ff_disable(dev);
+		return;
+	}
+
+	/* First, apply FF_FRICTION so the spring effect won't be violent */
+	struct ff_condition_effect condition = {
+		.right_saturation = magnitude,
+		.left_saturation  = magnitude,
+		.right_coeff      = S16_MAX,
+		.left_coeff       = S16_MAX,
+	};
+
+	struct ff_effect effect = {
+		.type		= FF_FRICTION,
+		.id		= center->friction_id,
+		.direction	= PID_DIRECTION_EAST,
+		.replay.length	= FF_INFINITE,
+
+		.u.condition[0] = condition,
+		.u.condition[1] = condition,
+	};
+
+	err = input_ff_upload(dev, &effect, &center->file);
+	center->friction_id = effect.id;
+
+	/* Upload FF_SPRING */
+	effect.type = FF_SPRING;
+	effect.id = center->spring_id;
+	effect.u.condition->right_saturation = spring_magnitude;
+	effect.u.condition->left_saturation = spring_magnitude;
+
+	err |= input_ff_upload(dev, &effect, &center->file);
+	center->spring_id = effect.id;
+
+	/* Handle effect removal if there were errors */
+	if (err) {
+		pr_err("Enabling autocenter failed!\n");
+		pidff_autocenter_ff_disable(dev);
+		return;
+	}
+
+	pidff_playback(dev, center->friction_id, 1);
+	pidff_playback(dev, center->spring_id, 1);
+	pr_debug("%s: Autocenter enabled, level: %u\n", __func__, magnitude);
+	pr_debug("FF_FRICTION id: %d\n", center->friction_id);
+	pr_debug("FF_SPRING id: %d\n", center->spring_id);
+}
+
+static void pidff_autocenter_work_fn(struct work_struct *work)
+{
+	struct pidff_device *pidff =
+		container_of(work, struct pidff_device, autocenter_work);
+
+	pidff_autocenter_ff(pidff->autocenter.dev);
+	pidff->autocenter.dev = NULL;
+}
+
 /*
  * pidff_set_autocenter() handler
  */
 static void pidff_set_autocenter(struct input_dev *dev, u16 magnitude)
 {
-	pidff_autocenter(dev->ff->private, magnitude);
+	struct pidff_device *pidff = dev->ff->private;
+
+	switch (pidff->autocenter.method) {
+	case PIDFF_AUTOCENTER_OLD:
+		pidff_autocenter(pidff, magnitude);
+		return;
+
+	case PIDFF_AUTOCENTER_FF:
+		pidff->autocenter.magnitude = magnitude;
+		pidff->autocenter.dev = dev;
+		schedule_work(&pidff->autocenter_work);
+		return;
+
+	case PIDFF_AUTOCENTER_NONE:
+	default:
+		hid_warn(dev, "Autocenter not supported!\n");
+	}
 }
 
 /*
@@ -1404,14 +1530,30 @@ static int pidff_check_autocenter(struct pidff_device *pidff,
 
 	if (pidff->block_load[PID_EFFECT_BLOCK_INDEX].value[0] ==
 	    pidff->block_load[PID_EFFECT_BLOCK_INDEX].field->logical_minimum + 1) {
+		pidff->autocenter.method = PIDFF_AUTOCENTER_OLD;
 		pidff_autocenter(pidff, U16_MAX);
-		set_bit(FF_AUTOCENTER, dev->ffbit);
+
+	/*
+	 * Due to the issues with current Linux force feedback API +
+	 * Wine/Proton, ff-based autocenter must be disabled for now.
+	 */
+#ifdef FF_AUTOCENTER_TEST
+	} else if (test_bit(FF_SPRING, dev->ffbit) &&
+		   test_bit(FF_FRICTION, dev->ffbit)) {
+		pidff->autocenter.method = PIDFF_AUTOCENTER_FF;
+		hid_notice(pidff->hid,
+			   "using force feedback effects as autocenter\n");
+#endif
 	} else {
+		pidff->autocenter.method = PIDFF_AUTOCENTER_NONE;
 		hid_notice(pidff->hid,
 			   "device has unknown autocenter control method\n");
 	}
 	pidff_erase_pid(pidff,
 			pidff->block_load[PID_EFFECT_BLOCK_INDEX].value[0]);
+
+	if (pidff->autocenter.method)
+		set_bit(FF_AUTOCENTER, dev->ffbit);
 
 	return 0;
 }
@@ -1444,6 +1586,8 @@ int hid_pidff_init_with_quirks(struct hid_device *hid, u32 initial_quirks)
 	pidff->hid = hid;
 	pidff->quirks = initial_quirks;
 	pidff->effect_count = 0;
+	pidff->autocenter.friction_id = -1;
+	pidff->autocenter.spring_id = -1;
 
 	hid_device_io_start(hid);
 
@@ -1503,6 +1647,8 @@ int hid_pidff_init_with_quirks(struct hid_device *hid, u32 initial_quirks)
 	ff->set_gain = pidff_set_gain;
 	ff->set_autocenter = pidff_set_autocenter;
 	ff->playback = pidff_playback;
+
+	INIT_WORK(&pidff->autocenter_work, pidff_autocenter_work_fn);
 
 	hid_info(dev, "Force feedback for USB HID PID devices by Anssi Hannula <anssi.hannula@gmail.com>\n");
 	hid_dbg(dev, "Active quirks mask: 0x%x\n", pidff->quirks);
