@@ -9,14 +9,14 @@
 /*
  * Skip initialization of 0xA7 descriptor (Delay effect)
  * Fixes VRS DFP, Cammus, old Simagic wheelbases
-*/
+ */
 #define HID_PIDFF_QUIRK_MISSING_DELAY		BIT(0)
 
 /*
  * Ignore PARAM_BLOCK_OFFSET (Axis number).
  * Most of the wheelbases have only one Axis anyway
  * Fixes VRS DFP
-*/
+ */
 #define HID_PIDFF_QUIRK_MISSING_PBO		BIT(1)
 
 /*
@@ -25,7 +25,7 @@
  * usage being possible different from 1. hid-pidff was strict
  * about it. This quirk disables this check.
  * Fixes VRS DFP
-*/
+ */
 #define HID_PIDFF_QUIRK_PERMISSIVE_CONTROL	BIT(2)
 
 /*
@@ -38,7 +38,7 @@
  * but only sine effect actually works properly.
  * this forces every periodic effect to be created as SINE
  * Fixes PXN (LITE STAR)
-*/
+ */
 #define HID_PIDFF_QUIRK_PERIODIC_SINE_ONLY	BIT(4)
 
 /* Kernel ifndef not included as we have our own copy of hid-pidff */
