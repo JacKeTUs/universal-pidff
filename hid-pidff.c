@@ -1450,7 +1450,6 @@ int hid_pidff_init_with_quirks(struct hid_device *hid, u32 initial_quirks)
 
 	/* pool report is sometimes messed up, refetch it */
 	pidff_fetch_pool(pidff);
-	pidff_set_gain_report(pidff, U16_MAX);
 	error = pidff_check_autocenter(pidff, dev);
 	if (error)
 		goto fail;
@@ -1479,6 +1478,11 @@ int hid_pidff_init_with_quirks(struct hid_device *hid, u32 initial_quirks)
 			   "device does not support device managed pool\n");
 		goto fail;
 	}
+
+	pidff_reset(pidff);
+	pidff_set_gain_report(pidff, U16_MAX);
+	/* Some devices have built-in autocentering when actuators are off */
+	pidff_set_device_control(pidff, PID_DISABLE_ACTUATORS);
 
 	error = input_ff_create(dev, max_effects);
 	if (error)
