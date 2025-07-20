@@ -155,6 +155,12 @@ struct pidff_usage {
 	s32 *value;
 };
 
+struct pidff_effect {
+	int pid_id;
+	int is_infinite;
+	unsigned int loop_count;
+};
+
 struct pidff_device {
 	struct hid_device *hid;
 
@@ -172,6 +178,8 @@ struct pidff_device {
 	struct pidff_usage pool[sizeof(pidff_pool)];
 	struct pidff_usage effect_operation[sizeof(pidff_effect_operation)];
 	struct pidff_usage block_free[sizeof(pidff_block_free)];
+
+	struct pidff_effect effect[PID_EFFECTS_MAX];
 
 	/*
 	 * Special field is a field that is not composed of
@@ -198,8 +206,6 @@ struct pidff_device {
 	int type_id[sizeof(pidff_effect_types)];
 	int status_id[sizeof(pidff_block_load_status)];
 	int operation_id[sizeof(pidff_effect_operation_status)];
-
-	int pid_id[PID_EFFECTS_MAX];
 
 	u32 quirks;
 	u8 effect_count;
@@ -279,19 +285,19 @@ static void pidff_set_time(struct pidff_usage *usage, u16 time)
 		pidff_rescale_time(time, usage->field), usage->field);
 }
 
+static int pidff_is_duration_infinite(u16 duration)
+{
+	return duration == FF_INFINITE || duration == PID_INFINITE;
+}
+
 static void pidff_set_duration(struct pidff_usage *usage, u16 duration)
 {
-	/* Infinite value conversion from Linux API -> PID */
-	if (duration == FF_INFINITE)
-		duration = PID_INFINITE;
-
 	/* PID defines INFINITE as the max possible value for duration field */
-	if (duration == PID_INFINITE) {
+	if (pidff_is_duration_infinite(duration)) {
 		pr_debug("setting infinite duration");
 		usage->value[0] = (1U << usage->field->report_size) - 1;
 		return;
 	}
-
 	pidff_set_time(usage, duration);
 }
 
@@ -715,6 +721,13 @@ static int pidff_request_effect_upload(struct pidff_device *pidff, int efnum)
 	return -EIO;
 }
 
+static int pidff_needs_playback(struct pidff_device *pidff, int effect_id, int n)
+{
+	struct pidff_effect *effect = &pidff->effect[effect_id];
+
+	return !effect->is_infinite || effect->loop_count != n;
+}
+
 /*
  * Play the effect with PID id n times
  */
@@ -745,8 +758,12 @@ static int pidff_playback(struct input_dev *dev, int effect_id, int value)
 {
 	struct pidff_device *pidff = dev->ff->private;
 
+	if (!pidff_needs_playback(pidff, effect_id, value))
+		return 0;
+
+	pidff->effect[effect_id].loop_count = value;
 	hid_dbg(pidff->hid, "Requesting playback on FF effect %d", effect_id);
-	pidff_playback_pid(pidff, pidff->pid_id[effect_id], value);
+	pidff_playback_pid(pidff, pidff->effect[effect_id].pid_id, value);
 	return 0;
 }
 
@@ -772,10 +789,9 @@ static void pidff_erase_pid(struct pidff_device *pidff, int pid_id)
 static int pidff_erase_effect(struct input_dev *dev, int effect_id)
 {
 	struct pidff_device *pidff = dev->ff->private;
-	int pid_id = pidff->pid_id[effect_id];
+	int pid_id = pidff->effect[effect_id].pid_id;
 
-	hid_dbg(pidff->hid, "starting to erase %d/%d\n",
-		effect_id, pidff->pid_id[effect_id]);
+	hid_dbg(pidff->hid, "starting to erase %d/%d\n", effect_id, pid_id);
 
 	/*
 	 * Wait for the queue to clear. We do not want
@@ -801,7 +817,7 @@ static int pidff_upload_effect(struct input_dev *dev, struct ff_effect *effect,
 	pidff->block_load[PID_EFFECT_BLOCK_INDEX].value[0] = 0;
 	if (old) {
 		pidff->block_load[PID_EFFECT_BLOCK_INDEX].value[0] =
-			pidff->pid_id[effect->id];
+			pidff->effect[effect->id].pid_id;
 	}
 
 	switch (effect->type) {
@@ -912,9 +928,13 @@ static int pidff_upload_effect(struct input_dev *dev, struct ff_effect *effect,
 		return -EINVAL;
 	}
 
-	if (!old)
-		pidff->pid_id[effect->id] =
+	if (!old) {
+		pidff->effect[effect->id].loop_count = 0;
+		pidff->effect[effect->id].pid_id =
 		    pidff->block_load[PID_EFFECT_BLOCK_INDEX].value[0];
+	}
+	pidff->effect[effect->id].is_infinite =
+		pidff_is_duration_infinite(effect->replay.length);
 
 	hid_dbg(pidff->hid, "uploaded\n");
 
