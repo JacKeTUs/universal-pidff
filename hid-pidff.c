@@ -770,6 +770,9 @@ static int pidff_erase_effect(struct input_dev *dev, int effect_id)
 	pidff_playback_pid(pidff, pid_id, 0);
 	pidff_erase_pid(pidff, pid_id);
 
+	if (!pidff->effect_count)
+		pidff_set_device_control(pidff, PID_DISABLE_ACTUATORS);
+
 	return 0;
 }
 
