@@ -573,8 +573,7 @@ static void pidff_set_gain_report(struct pidff_device *pidff, u16 gain)
  */
 static void pidff_set_device_control(struct pidff_device *pidff, int field)
 {
-	int i, index;
-	int field_index = pidff->control_id[field];
+	const int field_index = pidff->control_id[field];
 
 	/*
 	 * Search is permissive, some fields could be missing
@@ -588,12 +587,11 @@ static void pidff_set_device_control(struct pidff_device *pidff, int field)
 		hid_dbg(pidff->hid, "DEVICE_CONTROL is a bitmask\n");
 
 		/* Clear current bitmask */
-		for (i = 0; i < ARRAY_SIZE(pidff_device_control); i++) {
-			index = pidff->control_id[i];
+		for (int i = 0; i < ARRAY_SIZE(pidff_device_control); i++) {
+			int index = pidff->control_id[i];
+
 			if (index < 1)
 				continue;
-
-			hid_dbg(pidff->hid, "Clearing index: %d", index);
 			pidff->device_control->value[index - 1] = 0;
 		}
 
@@ -605,6 +603,8 @@ static void pidff_set_device_control(struct pidff_device *pidff, int field)
 
 	hid_hw_request(pidff->hid, pidff->reports[PID_DEVICE_CONTROL], HID_REQ_SET_REPORT);
 	hid_hw_wait(pidff->hid);
+	hid_dbg(pidff->hid, "Device control command 0x%02x sent",
+		pidff_device_control[field]);
 }
 
 /*
@@ -706,8 +706,8 @@ static int pidff_request_effect_upload(struct pidff_device *pidff, int efnum)
 static void pidff_playback_pid(struct pidff_device *pidff, int pid_id, int n)
 {
 	pidff->effect_operation[PID_EFFECT_BLOCK_INDEX].value[0] = pid_id;
-
-	hid_dbg(pidff->hid, "Playing PID effect %d", pid_id);
+	hid_dbg(pidff->hid, "%s PID effect %d", n == 0 ? "stopping" : "playing",
+		pid_id);
 
 	if (n == 0) {
 		pidff->effect_operation_status->value[0] =
@@ -720,7 +720,7 @@ static void pidff_playback_pid(struct pidff_device *pidff, int pid_id, int n)
 	}
 
 	hid_hw_request(pidff->hid, pidff->reports[PID_EFFECT_OPERATION],
-			HID_REQ_SET_REPORT);
+		       HID_REQ_SET_REPORT);
 }
 
 /*
@@ -730,7 +730,8 @@ static int pidff_playback(struct input_dev *dev, int effect_id, int value)
 {
 	struct pidff_device *pidff = dev->ff->private;
 
-	hid_dbg(pidff->hid, "Requesting playback on FF effect %d", effect_id);
+	hid_dbg(pidff->hid, "requesting %s on FF effect %d",
+		value == 0 ? "stop" : "playback", effect_id);
 	pidff_playback_pid(pidff, pidff->pid_id[effect_id], value);
 	return 0;
 }
