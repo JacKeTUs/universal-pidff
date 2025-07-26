@@ -24,7 +24,7 @@
  * instead of an array, which leads to a logical_minimum for this
  * usage being possible different from 1. hid-pidff was strict
  * about it. This quirk disables this check.
- * Fixes VRS DFP
+ * Fixes VRS DFP and MMOS FFB
 */
 #define HID_PIDFF_QUIRK_PERMISSIVE_CONTROL	BIT(2)
 
