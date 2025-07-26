@@ -49,4 +49,9 @@
 #define USB_VENDOR_ID_OPENFFB		0x1209
 #define USB_DEVICE_ID_OPENFFBOARD	0xffb0
 
+/* MMOS */
+#define USB_VENDOR_ID_MMOS		0xf055
+#define USB_DEVICE_ID_MMOS		0x0ffb
+
+
 #endif
