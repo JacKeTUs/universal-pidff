@@ -164,19 +164,35 @@ Make sure that all effects were played and the wheelbase reacted accordingly.
 **[Android App](https://play.google.com/store/apps/details?id=com.cammus.simulator)**
 
 ### VRS DirectForce Pro
-You can do it through VRS with Wine. You need to tweak Wine prefix for them.
+You can do it through VRS config tool through Steam as non-Steam game or with modified Wine prefix.
 
-That software uses hidraw to set up a base. You need to create `udev` rule for allow access to hidraw device:
+> [!WARNING]
+> Firmware update doesn't work at this time, puts the wheelbase onto bootloop. If you need to update the wheelbase, do it from Windows (VM with USB passthrough or dualboot) for now. It is known issue, and will be fixed in long term.
+
+#### Prerequisites:
+You need to install udev rules, which will open hidraw descriptors to the wheelbase, wheels, pedals.
+
 ```
 # VRS DFP
 echo 'KERNEL=="hidraw*", ATTRS{idVendor}=="0483", ATTRS{idProduct}=="a355", MODE="0666", TAG+="uaccess"' | sudo tee /etc/udev/rules.d/11-vrs.rules
 # VRS pedals
 echo 'KERNEL=="hidraw*", ATTRS{idVendor}=="0483", ATTRS{idProduct}=="a3be", MODE="0666", TAG+="uaccess"' | sudo tee /etc/udev/rules.d/11-vrs.rules
+# VRS wheel
+echo 'KERNEL=="hidraw*", ATTRS{idVendor}=="0483", ATTRS{idProduct}=="a44c", MODE="0666", TAG+="uaccess"' | sudo tee /etc/udev/rules.d/11-vrs.rules
 
 udevadm control --reload-rules && udevadm trigger
 ```
 
-Then you need to force VRS software to use hidraw, not SDL, to find devices:
+#### Steam method
+1. Add VRS config tool to Steam as non-Steam game. Rename it as you like.
+2. Compatibility -> Force the use of specific Steam Play compatibility tool -> set recent enough Proton on it. Proton 10, Proton Experimental, Proton GE worked fine.
+3. Change Shortcut -> Launch options like so:
+```
+PROTON_ENABLE_HIDRAW=1 %command%
+```
+
+#### Modified Wine prefix
+You need to force VRS software to use hidraw, not SDL, to communicate with devices:
 1. Create new Wine prefix for them:
 
       `mkdir ~/.vrs-wine`
@@ -196,9 +212,7 @@ Then you need to force VRS software to use hidraw, not SDL, to find devices:
 
     `WINEPREFIX=$HOME/.vrs-wine wine VRS.exe` - launch VRS software from installation directory.
 
-Note 1: Tested and working version of DirectForce configuration tool is 0.9.8.7 (firmware upgrade does not work, will put the wheelbase into a bootloop, please use Windows for fw upgrade for now)
-
-Note 2: In order to play Damping/Friction/Inertia/Spring effects by ffbplay, you must enable `Use device and game effects` from dropdown menu for these in DirectForce configuration tool and save it to the wheelbase.
+Note: In order to play Damping/Friction/Inertia/Spring effects by games, you must enable `Use device and game effects` from dropdown menu for these in DirectForce configuration tool and save it to the wheelbase.
 
 ### Asetek
 You need to enable "high torque mode" after device is turned on/plugged in.
