@@ -13,6 +13,7 @@
 #include <linux/input.h>
 #include <linux/minmax.h>
 #include <linux/slab.h>
+#include <linux/stringify.h>
 #include <linux/usb.h>
 
 #define	PID_EFFECTS_MAX		64
@@ -1055,6 +1056,11 @@ static int pidff_find_field_with_usage(int *usage_index,
 	return -1;
 }
 
+#define PIDFF_MISSING_FIELD(name, quirks) \
+	({ pr_debug("%s field not found, but that's OK\n", __stringify(name)); \
+	   pr_debug("Setting MISSING_%s quirk\n", __stringify(name)); \
+	   *quirks |= HID_PIDFF_QUIRK_MISSING_ ## name; })
+
 /*
  * Find fields from a report and fill a pidff_usage
  */
@@ -1062,9 +1068,6 @@ static int pidff_find_fields(struct pidff_usage *usage, const u8 *table,
 			     struct hid_report *report, int count, int strict,
 			     u32 *quirks)
 {
-	const u8 block_offset = pidff_set_condition[PID_PARAM_BLOCK_OFFSET];
-	const u8 delay = pidff_set_effect[PID_START_DELAY];
-
 	if (!report) {
 		pr_debug("%s, null report\n", __func__);
 		return -1;
@@ -1082,17 +1085,14 @@ static int pidff_find_fields(struct pidff_usage *usage, const u8 *table,
 			continue;
 		}
 
-		if (table[i] == delay) {
-			pr_debug("Delay field not found, but that's OK\n");
-			pr_debug("Setting MISSING_DELAY quirk\n");
-			*quirks |= HID_PIDFF_QUIRK_MISSING_DELAY;
+		/* Field quirks auto-detection */
+		if (table[i] == pidff_set_effect[PID_START_DELAY])
+			PIDFF_MISSING_FIELD(DELAY, quirks);
 
-		} else if (table[i] == block_offset) {
-			pr_debug("PBO field not found, but that's OK\n");
-			pr_debug("Setting MISSING_PBO quirk\n");
-			*quirks |= HID_PIDFF_QUIRK_MISSING_PBO;
+		else if (table[i] == pidff_set_condition[PID_PARAM_BLOCK_OFFSET])
+			PIDFF_MISSING_FIELD(PBO, quirks);
 
-		} else if (strict) {
+		else if (strict) {
 			pr_debug("failed to locate %d\n", i);
 			return -1;
 		}
