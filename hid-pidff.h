@@ -41,6 +41,16 @@
  */
 #define HID_PIDFF_QUIRK_PERIODIC_SINE_ONLY	BIT(4)
 
+/*
+ * Windows allows devices with missing negative coefficient for conditional
+ * effects. Negative coefficient is ignored in such cases. Do not fail
+ * set_condition usage search if negative coefficient is missing. Fixes
+ * conditional effect playback on Asetek wheelbases.
+ *
+ * https://learn.microsoft.com/en-us/previous-versions/windows/desktop/ee416601(v=vs.85)
+ */
+#define HID_PIDFF_QUIRK_MISSING_NEG_COEFFICIENT	BIT(5)
+
 /* Kernel ifndef not included as we have our own copy of hid-pidff */
 int hid_pidff_init(struct hid_device *hid);
 int hid_pidff_init_with_quirks(struct hid_device *hid, u32 initial_quirks);
