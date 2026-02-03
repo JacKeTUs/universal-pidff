@@ -56,6 +56,13 @@
  */
 #define HID_PIDFF_QUIRK_MISSING_NEG_SATURATION	BIT(6)
 
+/*
+ * Some devices (mainly Asetek) do not have deadband field in set conditional
+ * usage. Do not fail set conditional usage search if it's missing.
+ * Fixes conditional effect playback on Asetek wheelbases.
+ */
+#define HID_PIDFF_QUIRK_MISSING_DEADBAND	BIT(7)
+
 /* Kernel ifndef not included as we have our own copy of hid-pidff */
 int hid_pidff_init(struct hid_device *hid);
 int hid_pidff_init_with_quirks(struct hid_device *hid, u32 initial_quirks);
