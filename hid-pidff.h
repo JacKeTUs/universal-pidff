@@ -51,6 +51,11 @@
  */
 #define HID_PIDFF_QUIRK_MISSING_NEG_COEFFICIENT	BIT(5)
 
+/*
+ * This is the same case as for Negative coefficient
+ */
+#define HID_PIDFF_QUIRK_MISSING_NEG_SATURATION	BIT(6)
+
 /* Kernel ifndef not included as we have our own copy of hid-pidff */
 int hid_pidff_init(struct hid_device *hid);
 int hid_pidff_init_with_quirks(struct hid_device *hid, u32 initial_quirks);

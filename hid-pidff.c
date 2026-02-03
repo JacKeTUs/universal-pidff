@@ -618,16 +618,19 @@ static void pidff_set_condition_report(struct pidff_device *pidff,
 				 effect->u.condition[i].center);
 		pidff_set_signed(&pidff->set_condition[PID_POS_COEFFICIENT],
 				 effect->u.condition[i].right_coeff);
+		pidff_set(&pidff->set_condition[PID_POS_SATURATION],
+			  effect->u.condition[i].right_saturation);
 
 		/* Omit Negative Coefficient if missing */
 		if (!(pidff->quirks & HID_PIDFF_QUIRK_MISSING_NEG_COEFFICIENT))
 			pidff_set_signed(&pidff->set_condition[PID_NEG_COEFFICIENT],
 					effect->u.condition[i].left_coeff);
 
-		pidff_set(&pidff->set_condition[PID_POS_SATURATION],
-			  effect->u.condition[i].right_saturation);
-		pidff_set(&pidff->set_condition[PID_NEG_SATURATION],
-			  effect->u.condition[i].left_saturation);
+		/* Omit Negative Saturation if missing */
+		if (!(pidff->quirks & HID_PIDFF_QUIRK_MISSING_NEG_SATURATION))
+			pidff_set_signed(&pidff->set_condition[PID_NEG_SATURATION],
+					effect->u.condition[i].left_saturation);
+
 		pidff_set(&pidff->set_condition[PID_DEAD_BAND],
 			  effect->u.condition[i].deadband);
 		hid_hw_request(pidff->hid, pidff->reports[PID_SET_CONDITION],
@@ -1098,6 +1101,9 @@ static int pidff_find_fields(struct pidff_usage *usage, const u8 *table,
 
 		else if (table[i] == pidff_set_condition[PID_NEG_COEFFICIENT])
 			PIDFF_MISSING_FIELD(NEG_COEFFICIENT, quirks);
+
+		else if (table[i] == pidff_set_condition[PID_NEG_SATURATION])
+			PIDFF_MISSING_FIELD(NEG_SATURATION, quirks);
 
 		else if (strict) {
 			pr_debug("failed to locate %d\n", i);
