@@ -164,10 +164,7 @@ Make sure that all effects were played and the wheelbase reacted accordingly.
 **[Android App](https://play.google.com/store/apps/details?id=com.cammus.simulator)**
 
 ### VRS DirectForce Pro
-You can do it through VRS config tool through Steam as non-Steam game or with modified Wine prefix.
-
-> [!WARNING]
-> Firmware update doesn't work at this time, puts the wheelbase onto bootloop. If you need to update the wheelbase, do it from Windows (VM with USB passthrough or dualboot) for now. It is known issue, and will be fixed in long term.
+You can do it through VRS config tool through Steam as non-Steam game or with modified Wine prefix. Also, VRS One launched from Proton/Wine allows updating firmware on devices.
 
 #### Prerequisites:
 You need to install udev rules, which will open hidraw descriptors to the wheelbase, wheels, pedals.
@@ -176,11 +173,11 @@ You need to install udev rules, which will open hidraw descriptors to the wheelb
 # VRS DFP
 echo 'KERNEL=="hidraw*", ATTRS{idVendor}=="0483", ATTRS{idProduct}=="a355", MODE="0666", TAG+="uaccess"' | sudo tee /etc/udev/rules.d/11-vrs.rules
 # VRS pedals
-echo 'KERNEL=="hidraw*", ATTRS{idVendor}=="0483", ATTRS{idProduct}=="a3be", MODE="0666", TAG+="uaccess"' | sudo tee /etc/udev/rules.d/11-vrs.rules
+echo 'KERNEL=="hidraw*", ATTRS{idVendor}=="0483", ATTRS{idProduct}=="a3be", MODE="0666", TAG+="uaccess"' | sudo tee -a /etc/udev/rules.d/11-vrs.rules
 # VRS wheel
-echo 'KERNEL=="hidraw*", ATTRS{idVendor}=="0483", ATTRS{idProduct}=="a44c", MODE="0666", TAG+="uaccess"' | sudo tee /etc/udev/rules.d/11-vrs.rules
+echo 'KERNEL=="hidraw*", ATTRS{idVendor}=="0483", ATTRS{idProduct}=="a44c", MODE="0666", TAG+="uaccess"' | sudo tee -a /etc/udev/rules.d/11-vrs.rules
 
-udevadm control --reload-rules && udevadm trigger
+sudo udevadm control --reload-rules && sudo udevadm trigger
 ```
 
 #### Steam method
@@ -196,21 +193,17 @@ You need to force VRS software to use hidraw, not SDL, to communicate with devic
 1. Create new Wine prefix for them:
 
       `mkdir ~/.vrs-wine`
-1. Launch regedit in prefix:
 
-      `WINEPREFIX=$HOME/.vrs-wine wine regedit`
-1. Create two keys in
-  `HKEY_LOCAL_MACHINE\System\CurrentControlSet\Services\winebus`:
+1. Add important keys to it
 
-    * `DisableInput` (DWORD) - set to `1`;
-    * `Enable SDL` (DWORD) - set to `0`; (yes, variable name contains space)
-1. Install important packages for VRS config tool to work:
-      `WINEPREFIX=$HOME/.vrs-wine winetricks win7`
-      `WINEPREFIX=$HOME/.vrs-wine winetricks dotnet48`
+      ```
+      WINEPREFIX=$HOME/.vrs-wine wine reg add "HKLM\System\CurrentControlSet\Services\winebus" /v "DisableInput" /t REG_DWORD /d 1
+      WINEPREFIX=$HOME/.vrs-wine wine reg add "HKLM\System\CurrentControlSet\Services\winebus" /v "Enable SDL" /t REG_DWORD /d 0
+      ```
 
 1. Now you can launch soft through that WINEPREFIX:
 
-    `WINEPREFIX=$HOME/.vrs-wine wine VRS.exe` - launch VRS software from installation directory.
+    `WINEPREFIX=$HOME/.vrs-wine wine VRSOne.exe` - launch VRS software from installation directory.
 
 Note: In order to play Damping/Friction/Inertia/Spring effects by games, you must enable `Use device and game effects` from dropdown menu for these in DirectForce configuration tool and save it to the wheelbase.
 
