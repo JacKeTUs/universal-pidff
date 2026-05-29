@@ -1408,8 +1408,10 @@ static int pidff_find_effects(struct pidff_device *pidff,
 		set_bit(FF_SAW_DOWN, dev->ffbit);
 		set_bit(FF_PERIODIC, dev->ffbit);
 	}
-	if (pidff->type_id[PID_SPRING])
-		set_bit(FF_SPRING, dev->ffbit);
+	if (!(pidff->quirks & HID_PIDFF_QUIRK_DISABLE_SPRING))
+        if (pidff->type_id[PID_SPRING])
+            set_bit(FF_SPRING, dev->ffbit);
+
 	if (pidff->type_id[PID_DAMPER])
 		set_bit(FF_DAMPER, dev->ffbit);
 	if (pidff->type_id[PID_INERTIA])

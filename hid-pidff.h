@@ -63,6 +63,11 @@
  */
 #define HID_PIDFF_QUIRK_MISSING_DEADBAND	BIT(7)
 
+/*
+ * Hotfix for Moza?
+ */
+#define HID_PIDFF_QUIRK_DISABLE_SPRING	BIT(8)
+
 /* Kernel ifndef not included as we have our own copy of hid-pidff */
 int hid_pidff_init(struct hid_device *hid);
 int hid_pidff_init_with_quirks(struct hid_device *hid, u32 initial_quirks);
